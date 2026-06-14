@@ -110,7 +110,7 @@ def ecran_creation():
         st.markdown("**Noms des équipes** (un par ligne, vide = noms automatiques)")
         noms_brut = st.text_area("Équipes", height=140, label_visibility="collapsed",
                                  placeholder="Les Aigles\nLes Tigres\n...")
-        submit = st.form_submit_button("🚀 Créer le tournoi", type="primary")
+        submit = st.form_submit_button("🏐 Créer le tournoi", type="primary")
 
     if submit:
         noms = [n for n in noms_brut.splitlines() if n.strip()]
