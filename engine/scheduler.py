@@ -221,12 +221,18 @@ def ordonnancer_parallele(matchs_p: list[Match], matchs_c: list[Match],
 #  Affectation des arbitres (équipes qui ne jouent pas)
 # --------------------------------------------------------------------------- #
 def assigner_arbitres(t: Tournoi, matchs: list[Match],
-                      pool_ids: list[int] | None = None) -> None:
+                      pool_ids: list[int] | None = None,
+                      fallback_ids: list[int] | None = None) -> None:
     """Affecte une équipe arbitre à chaque match parmi les équipes qui ne jouent
     pas pendant la vague du match, en équilibrant la charge d'arbitrage.
 
-    - `pool_ids` : restreint le vivier d'arbitres à ces équipes (ex : même
-      compétition en finales / élimination). Par défaut, toutes les équipes.
+    - `pool_ids` : vivier d'arbitres prioritaire (ex : même compétition en
+      finales / élimination). Par défaut, toutes les équipes.
+    - `fallback_ids` : vivier de secours, utilisé seulement quand aucune équipe
+      du vivier prioritaire n'est disponible (ex : l'autre compétition). Permet
+      d'arbitrer un match consolante avec une équipe principale et inversement.
+    - Si vraiment aucune équipe (ni prioritaire ni secours) n'est libre, le match
+      est marqué `arbitre_auto = True` (arbitrage auto-géré).
     - La charge initiale tient compte des arbitrages déjà affectés ailleurs dans
       le tournoi (`t.matchs`), pour rester homogène d'une phase à l'autre.
     """
@@ -234,9 +240,13 @@ def assigner_arbitres(t: Tournoi, matchs: list[Match],
     if pool_ids is None:
         pool_ids = [e.id for e in t.equipes]
     pool = [i for i in pool_ids if i in par_id]
+    pool_set = set(pool)
+    fallback = [i for i in (fallback_ids or [])
+                if i in par_id and i not in pool_set]
 
     # Charge globale courante (arbitrages déjà posés sur d'autres matchs).
-    charge: dict[int, int] = {i: 0 for i in pool}
+    univers = pool + fallback
+    charge: dict[int, int] = {i: 0 for i in univers}
     cibles = {id(m) for m in matchs}
     for m in t.matchs:
         arb = getattr(m, "arbitre", None)
@@ -246,6 +256,7 @@ def assigner_arbitres(t: Tournoi, matchs: list[Match],
     # On (ré)affecte les matchs cibles, regroupés par vague.
     for m in matchs:
         m.arbitre = None
+        m.arbitre_auto = False
     par_vague: dict[int, list[Match]] = {}
     for m in matchs:
         par_vague.setdefault(m.vague if m.vague is not None else -1, []).append(m)
@@ -258,12 +269,17 @@ def assigner_arbitres(t: Tournoi, matchs: list[Match],
                 if e is not None:
                     joueurs.add(e.id)
         occupes: set[int] = set()  # arbitres déjà pris sur cette vague
+
+        def libres(viv: list[int]) -> list[int]:
+            return [i for i in viv if i not in joueurs and i not in occupes]
+
         for m in groupe:
             if m.equipe_a is None or m.equipe_b is None:
                 continue  # slot de bracket non encore résolu
-            candidats = [i for i in pool
-                         if i not in joueurs and i not in occupes]
+            # Vivier prioritaire d'abord, puis vivier de secours.
+            candidats = libres(pool) or libres(fallback)
             if not candidats:
+                m.arbitre_auto = True  # aucune équipe disponible
                 continue
             choix = min(candidats, key=lambda i: (charge[i], i))
             m.arbitre = par_id[choix]
@@ -278,12 +294,20 @@ def assigner_arbitres_elimination(t: Tournoi) -> None:
     À rappeler après chaque propagation : les matchs dont les deux équipes ne
     sont pas encore connues restent sans arbitre jusqu'à ce qu'elles le soient.
     """
+    # Vivier de chaque compétition (pour le secours croisé).
+    viviers: dict[Phase, list[int]] = {}
+    for phase in (Phase.PRINCIPALE, Phase.CONSOLANTE):
+        poules = t.poules_de(phase)
+        viviers[phase] = [e.id for e in poules[0].equipes] if poules else []
+
     for phase in (Phase.PRINCIPALE, Phase.CONSOLANTE):
         poules = t.poules_de(phase)
         if not poules:
             continue
-        pool_ids = [e.id for e in poules[0].equipes]
+        pool_ids = viviers[phase]
+        autre = Phase.CONSOLANTE if phase == Phase.PRINCIPALE else Phase.PRINCIPALE
+        fallback_ids = viviers.get(autre, [])
         groupe = poules[0].nom
         ms = [m for m in t.matchs_de(Phase.ELIMINATION) if m.groupe == groupe]
         if ms:
-            assigner_arbitres(t, ms, pool_ids)
+            assigner_arbitres(t, ms, pool_ids, fallback_ids)

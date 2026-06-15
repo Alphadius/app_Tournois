@@ -236,11 +236,14 @@ def generer_poules_finales(t: Tournoi) -> None:
     ordonnancer_parallele(matchs_p, matchs_c, t.nb_terrains)
     t.matchs.extend(matchs_p)
     t.matchs.extend(matchs_c)
-    # Arbitres : chaque compétition s'auto-arbitre (vivier = ses propres équipes).
+    # Arbitres : chaque compétition s'auto-arbitre en priorité ; si aucune équipe
+    # de la compétition n'est libre, on se rabat sur l'autre compétition.
+    ids_p = [e.id for e in principale]
+    ids_c = [e.id for e in consolante]
     if matchs_p:
-        assigner_arbitres(t, matchs_p, [e.id for e in principale])
+        assigner_arbitres(t, matchs_p, ids_p, ids_c)
     if matchs_c:
-        assigner_arbitres(t, matchs_c, [e.id for e in consolante])
+        assigner_arbitres(t, matchs_c, ids_c, ids_p)
 
 
 def poules_finales_creees(t: Tournoi) -> bool:

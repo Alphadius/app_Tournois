@@ -14,7 +14,7 @@ FORMAT_VERSION = 1
 
 _MATCH_CHAMPS = (
     "id", "poule", "tour", "sets_a", "sets_b", "points_a", "points_b",
-    "terrain", "vague", "groupe", "tour_elim", "label_tour",
+    "terrain", "vague", "arbitre_auto", "groupe", "tour_elim", "label_tour",
     "next_match_id", "next_slot", "perdant_vers_id", "perdant_vers_slot",
 )
 

@@ -67,7 +67,12 @@ def feuille_html(tournoi_nom: str, titre: str, matchs: list,
         for m in sorted(par_vague[vague], key=lambda x: x.terrain or 0):
             terrain = f"Terrain {m.terrain}" if m.terrain else "—"
             arbitre = getattr(m, "arbitre", None)
-            arb = _nom(arbitre) if arbitre is not None else "—"
+            if arbitre is not None:
+                arb = _nom(arbitre)
+            elif getattr(m, "arbitre_auto", False):
+                arb = "Auto-géré"
+            else:
+                arb = "—"
             cible = ""
             if regles is not None:
                 cible = f" — 🎯 {regles.points_cible(m.phase)} pts"

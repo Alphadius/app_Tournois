@@ -47,10 +47,16 @@ def jouer_bracket(t):
         jouer_matchs(t, prets)
 
 
-def verifier_arbitres(matchs, pool_ids=None):
+def verifier_arbitres(matchs, pool_ids=None, fallback_ids=None):
     """Vérifie qu'aucun arbitre ne joue dans sa vague et appartient au vivier.
-    Retourne la charge d'arbitrage par équipe (id -> nb de matchs arbitrés).
+
+    Si `fallback_ids` est fourni, un arbitre du vivier de secours est toléré
+    (secours croisé entre compétitions). Retourne la charge d'arbitrage par
+    équipe (id -> nb de matchs arbitrés).
     """
+    autorises = None
+    if pool_ids is not None:
+        autorises = set(pool_ids) | set(fallback_ids or [])
     par_vague = defaultdict(list)
     for m in matchs:
         par_vague[m.vague].append(m)
@@ -68,9 +74,9 @@ def verifier_arbitres(matchs, pool_ids=None):
                 continue
             assert arb.id not in joueurs, \
                 f"vague {vague}: arbitre {arb.nom} joue aussi"
-            if pool_ids is not None:
-                assert arb.id in pool_ids, \
-                    f"vague {vague}: arbitre {arb.nom} hors compétition"
+            if autorises is not None:
+                assert arb.id in autorises, \
+                    f"vague {vague}: arbitre {arb.nom} hors vivier autorisé"
             arbitres_vague.append(arb.id)
             charge[arb.id] += 1
         assert len(arbitres_vague) == len(set(arbitres_vague)), \
@@ -389,11 +395,13 @@ def test_finales_paralleles():
         assert not (par_vague_p[v] & par_vague_c[v]), \
             f"vague {v}: terrains partagés entre principale et consolante"
 
-    # Arbitres issus de la même compétition.
-    verifier_arbitres(mp, ids_p)
-    verifier_arbitres(mc, ids_c)
+    # Arbitres issus en priorité de la compétition, avec secours croisé toléré
+    # (avec 4 terrains, une poule de 4 peut jouer ses 2 matchs en parallèle et
+    # n'a alors aucune équipe libre pour s'auto-arbitrer).
+    verifier_arbitres(mp, ids_p, ids_c)
+    verifier_arbitres(mc, ids_c, ids_p)
     print("  [parallèle] finales principale/consolante sur terrains dédiés + "
-          "arbitres internes  OK")
+          "arbitres (secours croisé toléré)  OK")
 
 
 def test_repartition_par_taille():
@@ -441,6 +449,7 @@ def test_arbitres_elimination():
         p.nom: {e.id for e in p.equipes}
         for p in t.poules_de(Phase.PRINCIPALE) + t.poules_de(Phase.CONSOLANTE)
     }
+    ids_tous = set().union(*ids_par_groupe.values())
     # On joue le bracket jusqu'au bout en revérifiant les arbitres à chaque étape.
     for _ in range(50):
         prets = [m for m in t.matchs_de(Phase.ELIMINATION) if m.pret and not m.joue]
@@ -449,13 +458,16 @@ def test_arbitres_elimination():
         for m in t.matchs_de(Phase.ELIMINATION):
             arb = getattr(m, "arbitre", None)
             if arb is not None:
-                assert arb.id in ids_par_groupe[m.groupe], \
-                    f"{m.label_tour} {m.groupe}: arbitre hors compétition"
+                # L'arbitre vient en priorité de la compétition, mais peut être
+                # une équipe de l'autre compétition en secours (jamais une équipe
+                # qui joue le match).
+                assert arb.id in ids_tous, \
+                    f"{m.label_tour} {m.groupe}: arbitre inconnu"
                 assert arb.id not in (m.equipe_a.id, m.equipe_b.id), \
                     "l'arbitre joue le match"
         jouer_matchs(t, prets)
     assert elimination_terminee(t)
-    print("  [arbitres] élimination : arbitres internes recalculés au fil du bracket  OK")
+    print("  [arbitres] élimination : arbitres (secours croisé) recalculés au fil du bracket  OK")
 
 
 def test_statistiques():
@@ -495,6 +507,38 @@ def test_statistiques():
           f"{s['nb_equipes']} équipes  OK")
 
 
+def test_arbitres_fallback_et_auto():
+    """Secours croisé : si aucune équipe du vivier prioritaire n'est libre, on
+    prend une équipe du vivier de secours ; si vraiment personne n'est libre, le
+    match est marqué auto-géré."""
+    from engine.models import Equipe, Match, Phase, Tournoi
+    from engine.scheduler import assigner_arbitres
+
+    eqs = [Equipe(id=i, nom=f"E{i}") for i in range(1, 5)]
+    t = Tournoi(nom="Fb", nb_terrains=2, equipes=eqs)
+
+    # Cas 1 : un seul match (E1 vs E2) ; le vivier prioritaire = {E1, E2} est
+    # occupé (les deux jouent), donc on se rabat sur le secours {E3, E4}.
+    m1 = Match(id=1, equipe_a=eqs[0], equipe_b=eqs[1], poule="P", phase=Phase.PRINCIPALE,
+               vague=1)
+    t.matchs = [m1]
+    assigner_arbitres(t, [m1], pool_ids=[1, 2], fallback_ids=[3, 4])
+    assert m1.arbitre is not None and m1.arbitre.id in (3, 4), "secours non utilisé"
+    assert not m1.arbitre_auto
+
+    # Cas 2 : deux matchs dans la même vague mobilisent les 4 équipes -> aucune
+    # équipe libre, ni prioritaire ni secours -> auto-géré.
+    ma = Match(id=2, equipe_a=eqs[0], equipe_b=eqs[1], poule="P", phase=Phase.PRINCIPALE,
+               vague=1)
+    mb = Match(id=3, equipe_a=eqs[2], equipe_b=eqs[3], poule="P", phase=Phase.PRINCIPALE,
+               vague=1)
+    t.matchs = [ma, mb]
+    assigner_arbitres(t, [ma, mb], pool_ids=[1, 2, 3, 4])
+    assert ma.arbitre is None and ma.arbitre_auto, "auto-géré attendu (ma)"
+    assert mb.arbitre is None and mb.arbitre_auto, "auto-géré attendu (mb)"
+    print("  [arbitres] secours croisé + auto-gestion  OK")
+
+
 if __name__ == "__main__":
     print("Tests moteur :")
     test_scheduler_parallele()
@@ -513,5 +557,6 @@ if __name__ == "__main__":
     test_finales_paralleles()
     test_repartition_par_taille()
     test_arbitres_elimination()
+    test_arbitres_fallback_et_auto()
     test_statistiques()
     print("Tout est vert.")

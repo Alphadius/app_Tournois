@@ -177,15 +177,18 @@ Après la phase de classement, clique sur **générer les finales**. Le classeme
 **poule consolante**. Les deux poules rejouent un mini-championnat et se déroulent **en
 parallèle sur des terrains dédiés** (par ex. avec 4 terrains : 2 pour la principale, 2 pour
 la consolante ; avec un nombre impair, le terrain en plus alterne entre les deux). Chaque
-match est arbitré par une équipe **de la même compétition**.
+match est arbitré **en priorité** par une équipe **de la même compétition** ; si aucune n'est
+libre à ce moment-là, une équipe de l'autre compétition prend le relais, et si vraiment
+personne n'est disponible le match est indiqué en **arbitrage auto-géré**.
 
 ### d. La phase éliminatoire
 
 À la fin des finales, l'outil génère un **tableau à élimination directe pour chaque poule**.
 Le placement (têtes de série) est fait pour que **le 1er et le 2e d'une poule ne puissent se
 rencontrer qu'en finale**. Chaque tableau comporte une **petite finale** (match pour la 3e
-place), et les arbitres viennent toujours de la **même compétition**. À la fin, le **podium**
-s'affiche avec 🥇🥈🥉.
+place), et les arbitres viennent **en priorité** de la **même compétition** (à défaut, une
+équipe de l'autre compétition dépanne ; si aucune n'est libre, l'arbitrage est **auto-géré**).
+À la fin, le **podium** s'affiche avec 🥇🥈🥉.
 
 ### e. Les réglages (barre latérale ⚙️)
 
