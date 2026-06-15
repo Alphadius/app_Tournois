@@ -34,6 +34,7 @@ table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 
 th, td { border: 1px solid #888; padding: 6px 9px; text-align: left; }
 th { background: #eee; }
 .terr { width: 80px; text-align: center; }
+.arb { width: 130px; text-align: center; color: #555; }
 .score { width: 120px; text-align: center; font-weight: 700; letter-spacing: 1px; }
 .vs { color: #666; padding: 0 6px; }
 .cols { display: flex; flex-wrap: wrap; gap: 24px; }
@@ -56,16 +57,20 @@ def feuille_html(tournoi_nom: str, titre: str, matchs: list,
         lignes = ""
         for m in sorted(par_vague[vague], key=lambda x: x.terrain or 0):
             terrain = f"Terrain {m.terrain}" if m.terrain else "—"
+            arbitre = getattr(m, "arbitre", None)
+            arb = _nom(arbitre) if arbitre is not None else "—"
             lignes += (
                 f"<tr><td class='terr'>{terrain}</td>"
                 f"<td>{_nom(m.equipe_a)} <span class='vs'>vs</span> {_nom(m.equipe_b)}"
                 f" <small>({escape(m.poule)})</small></td>"
+                f"<td class='arb'>{arb}</td>"
                 f"<td class='score'>{_score(m)}</td></tr>"
             )
         bloc_planning += (
             f"<h2>Vague {vague}</h2>"
             "<table><thead><tr><th class='terr'>Terrain</th>"
-            "<th>Match</th><th class='score'>Score</th></tr></thead>"
+            "<th>Match</th><th class='arb'>Arbitre</th>"
+            "<th class='score'>Score</th></tr></thead>"
             f"<tbody>{lignes}</tbody></table>"
         )
 

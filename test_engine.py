@@ -6,8 +6,9 @@ from engine import (
     classements_tour, creer_tournoi, dumps, elimination_terminee,
     enregistrer_set_sec, generer_bracket, generer_elimination,
     generer_poules_finales, generer_tour_brassage_suivant, lancer_tour_brassage,
-    loads, ordre_tetes_de_serie, podium, poules_finales_terminees, suisse_termine,
-    tour_brassage_termine, tours_suisse, vainqueurs_finals,
+    loads, ordonnancer_parallele, ordre_tetes_de_serie, podium,
+    poules_finales_terminees, suisse_termine, tour_brassage_termine,
+    tours_suisse, vainqueurs_finals,
 )
 from engine.ranking import classement_poule
 
@@ -44,6 +45,37 @@ def jouer_bracket(t):
         if not prets:
             break
         jouer_matchs(t, prets)
+
+
+def verifier_arbitres(matchs, pool_ids=None):
+    """Vérifie qu'aucun arbitre ne joue dans sa vague et appartient au vivier.
+    Retourne la charge d'arbitrage par équipe (id -> nb de matchs arbitrés).
+    """
+    par_vague = defaultdict(list)
+    for m in matchs:
+        par_vague[m.vague].append(m)
+    charge = defaultdict(int)
+    for vague, ms in par_vague.items():
+        joueurs = set()
+        for m in ms:
+            for e in (m.equipe_a, m.equipe_b):
+                if e is not None:
+                    joueurs.add(e.id)
+        arbitres_vague = []
+        for m in ms:
+            arb = getattr(m, "arbitre", None)
+            if arb is None:
+                continue
+            assert arb.id not in joueurs, \
+                f"vague {vague}: arbitre {arb.nom} joue aussi"
+            if pool_ids is not None:
+                assert arb.id in pool_ids, \
+                    f"vague {vague}: arbitre {arb.nom} hors compétition"
+            arbitres_vague.append(arb.id)
+            charge[arb.id] += 1
+        assert len(arbitres_vague) == len(set(arbitres_vague)), \
+            f"vague {vague}: un arbitre est affecté à 2 matchs"
+    return charge
 
 
 def verifier_vagues(matchs, nb_terrains):
@@ -316,6 +348,87 @@ def test_flux_complet():
           f"consolante={champions['Consolante'].nom}  OK")
 
 
+def test_arbitres_brassage():
+    """En brassage, chaque match a un arbitre qui ne joue pas, réparti équitablement."""
+    noms = [f"E{i}" for i in range(1, 9)]
+    t = creer_tournoi("Arb", noms, nb_poules=2, nb_terrains=2)
+    lancer_tour_brassage(t, 1)
+    matchs = t.matchs_tour(1)
+    # Avec 2 terrains et 8 équipes, 4 équipes se reposent par vague -> arbitre dispo.
+    assert all(getattr(m, "arbitre", None) is not None for m in matchs), \
+        "des matchs n'ont pas d'arbitre"
+    charge = verifier_arbitres(matchs)
+    ecart = max(charge.values()) - min(charge.values())
+    assert ecart <= 1, f"répartition des arbitres déséquilibrée: {dict(charge)}"
+    print(f"  [arbitres] brassage : tous arbitrés, écart de charge {ecart}  OK")
+
+
+def test_finales_paralleles():
+    """Principale et consolante se jouent en parallèle sur des terrains dédiés,
+    et chaque compétition s'auto-arbitre (arbitre de la même poule)."""
+    noms = [f"E{i}" for i in range(1, 9)]
+    t = creer_tournoi("Para", noms, nb_poules=2, nb_terrains=4,
+                      qualifies_principale_par_poule=2)
+    lancer_tour_brassage(t, 1)
+    jouer_matchs(t, t.matchs_tour(1))
+    generer_poules_finales(t)
+
+    mp = t.matchs_de(Phase.PRINCIPALE)
+    mc = t.matchs_de(Phase.CONSOLANTE)
+    ids_p = {e.id for e in t.poules_de(Phase.PRINCIPALE)[0].equipes}
+    ids_c = {e.id for e in t.poules_de(Phase.CONSOLANTE)[0].equipes}
+
+    # Terrains dédiés : avec 4 terrains, principale 1-2, consolante 3-4 (jamais de chevauchement).
+    par_vague_p = defaultdict(set)
+    par_vague_c = defaultdict(set)
+    for m in mp:
+        par_vague_p[m.vague].add(m.terrain)
+    for m in mc:
+        par_vague_c[m.vague].add(m.terrain)
+    for v in set(par_vague_p) | set(par_vague_c):
+        assert not (par_vague_p[v] & par_vague_c[v]), \
+            f"vague {v}: terrains partagés entre principale et consolante"
+
+    # Arbitres issus de la même compétition.
+    verifier_arbitres(mp, ids_p)
+    verifier_arbitres(mc, ids_c)
+    print("  [parallèle] finales principale/consolante sur terrains dédiés + "
+          "arbitres internes  OK")
+
+
+def test_arbitres_elimination():
+    """En élimination, l'arbitre vient toujours de la même compétition, et de
+    nouveaux arbitres apparaissent au fur et à mesure que le bracket se remplit."""
+    noms = [f"E{i}" for i in range(1, 9)]
+    t = creer_tournoi("Elim", noms, nb_poules=2, nb_terrains=2,
+                      qualifies_principale_par_poule=2)
+    lancer_tour_brassage(t, 1)
+    jouer_matchs(t, t.matchs_tour(1))
+    generer_poules_finales(t)
+    jouer_matchs(t, t.matchs_de(Phase.PRINCIPALE) + t.matchs_de(Phase.CONSOLANTE))
+    generer_elimination(t)
+
+    ids_par_groupe = {
+        p.nom: {e.id for e in p.equipes}
+        for p in t.poules_de(Phase.PRINCIPALE) + t.poules_de(Phase.CONSOLANTE)
+    }
+    # On joue le bracket jusqu'au bout en revérifiant les arbitres à chaque étape.
+    for _ in range(50):
+        prets = [m for m in t.matchs_de(Phase.ELIMINATION) if m.pret and not m.joue]
+        if not prets:
+            break
+        for m in t.matchs_de(Phase.ELIMINATION):
+            arb = getattr(m, "arbitre", None)
+            if arb is not None:
+                assert arb.id in ids_par_groupe[m.groupe], \
+                    f"{m.label_tour} {m.groupe}: arbitre hors compétition"
+                assert arb.id not in (m.equipe_a.id, m.equipe_b.id), \
+                    "l'arbitre joue le match"
+        jouer_matchs(t, prets)
+    assert elimination_terminee(t)
+    print("  [arbitres] élimination : arbitres internes recalculés au fil du bracket  OK")
+
+
 if __name__ == "__main__":
     print("Tests moteur :")
     test_scheduler_parallele()
@@ -330,4 +443,7 @@ if __name__ == "__main__":
     test_suisse_impair_bye()
     test_suisse_flux_complet()
     test_flux_complet()
+    test_arbitres_brassage()
+    test_finales_paralleles()
+    test_arbitres_elimination()
     print("Tout est vert.")

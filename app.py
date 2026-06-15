@@ -257,6 +257,9 @@ def carte_match(t, m, contexte: str):
     etat = "✅" if m.joue else "⏳"
     lieu = f"Terrain {m.terrain}" if m.terrain else ""
     st.markdown(f"{etat} *{lieu}* — {m.poule}")
+    arbitre = getattr(m, "arbitre", None)
+    if arbitre is not None:
+        st.caption(f"🟨 Arbitre : {arbitre.nom}")
     c1, c2 = st.columns(2)
     pa = c1.number_input(_nom(m.equipe_a), 0, 99,
                          value=m.points_a if m.points_a is not None else 0,

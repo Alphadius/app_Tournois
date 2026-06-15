@@ -9,8 +9,9 @@ from .suisse import (
     suisse_termine, tour_suisse_termine, tours_suisse,
 )
 from .scheduler import (
-    generer_matchs_phase, generer_matchs_poule, generer_matchs_poules,
-    ordonnancer, ordonnancer_elimination,
+    assigner_arbitres, assigner_arbitres_elimination, generer_matchs_phase,
+    generer_matchs_poule, generer_matchs_poules, ordonnancer,
+    ordonnancer_elimination, ordonnancer_parallele,
 )
 from .persistence import dumps, from_dict, loads, to_dict
 from .service import (
@@ -32,8 +33,9 @@ __all__ = [
     "bye_du_tour", "classement_suisse", "nb_tours_recommande",
     "peut_generer_tour_suivant", "suisse_termine", "tour_suisse_termine", "tours_suisse",
     # scheduler
+    "assigner_arbitres", "assigner_arbitres_elimination",
     "generer_matchs_phase", "generer_matchs_poule", "generer_matchs_poules",
-    "ordonnancer", "ordonnancer_elimination",
+    "ordonnancer", "ordonnancer_elimination", "ordonnancer_parallele",
     # bracket
     "generer_bracket", "ordre_tetes_de_serie", "propager_vainqueur",
     # service

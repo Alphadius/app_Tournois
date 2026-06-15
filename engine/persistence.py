@@ -47,7 +47,8 @@ def to_dict(t: Tournoi) -> dict:
         "matchs": [
             {**{c: getattr(m, c, None) for c in _MATCH_CHAMPS},
              "phase": m.phase.value,
-             "equipe_a_id": _eid(m.equipe_a), "equipe_b_id": _eid(m.equipe_b)}
+             "equipe_a_id": _eid(m.equipe_a), "equipe_b_id": _eid(m.equipe_b),
+             "arbitre_id": _eid(getattr(m, "arbitre", None))}
             for m in t.matchs
         ],
     }
@@ -81,7 +82,7 @@ def from_dict(d: dict) -> Tournoi:
     ]
     t.matchs = [
         Match(equipe_a=eq(m["equipe_a_id"]), equipe_b=eq(m["equipe_b_id"]),
-              phase=Phase(m["phase"]),
+              phase=Phase(m["phase"]), arbitre=eq(m.get("arbitre_id")),
               **{c: m.get(c) for c in _MATCH_CHAMPS})
         for m in d["matchs"]
     ]

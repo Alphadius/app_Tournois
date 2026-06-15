@@ -197,3 +197,5 @@ def generer_tour_suisse(t: Tournoi, tour: int) -> None:
         t.suisse_byes.append(bye.id)
     ordonnancer(matchs, t.nb_terrains)
     t.matchs.extend(matchs)
+    from .scheduler import assigner_arbitres
+    assigner_arbitres(t, matchs)

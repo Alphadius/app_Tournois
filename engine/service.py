@@ -13,8 +13,9 @@ from .bracket import generer_bracket, propager_vainqueur
 from .models import Equipe, Phase, Poule, ReglesScore, Tournoi, creer_equipes
 from .ranking import LigneClassement, classement_poule
 from .scheduler import (
-    generer_matchs_phase, generer_matchs_poules, ordonnancer,
-    ordonnancer_elimination,
+    assigner_arbitres, assigner_arbitres_elimination, generer_matchs_phase,
+    generer_matchs_poules, ordonnancer, ordonnancer_elimination,
+    ordonnancer_parallele,
 )
 
 _ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -113,6 +114,7 @@ def lancer_tour_brassage(t: Tournoi, tour: int) -> None:
     matchs = generer_matchs_poules(t, poules)
     ordonnancer(matchs, t.nb_terrains)
     t.matchs.extend(matchs)
+    assigner_arbitres(t, matchs)
 
 
 def tour_brassage_termine(t: Tournoi, tour: int) -> bool:
@@ -201,10 +203,17 @@ def generer_poules_finales(t: Tournoi) -> None:
     if consolante:
         t.poules.append(Poule(nom="Consolante", phase=Phase.CONSOLANTE, equipes=consolante))
 
-    matchs = (generer_matchs_phase(t, Phase.PRINCIPALE)
-              + generer_matchs_phase(t, Phase.CONSOLANTE))
-    ordonnancer(matchs, t.nb_terrains)
-    t.matchs.extend(matchs)
+    matchs_p = generer_matchs_phase(t, Phase.PRINCIPALE)
+    matchs_c = generer_matchs_phase(t, Phase.CONSOLANTE)
+    # Les deux compétitions se jouent en parallèle sur des terrains dédiés.
+    ordonnancer_parallele(matchs_p, matchs_c, t.nb_terrains)
+    t.matchs.extend(matchs_p)
+    t.matchs.extend(matchs_c)
+    # Arbitres : chaque compétition s'auto-arbitre (vivier = ses propres équipes).
+    if matchs_p:
+        assigner_arbitres(t, matchs_p, [e.id for e in principale])
+    if matchs_c:
+        assigner_arbitres(t, matchs_c, [e.id for e in consolante])
 
 
 def poules_finales_creees(t: Tournoi) -> bool:
@@ -238,6 +247,8 @@ def generer_elimination(t: Tournoi) -> None:
 
     ordonnancer_elimination(matchs, t.nb_terrains)
     t.matchs.extend(matchs)
+    # Arbitres des premiers tours connus (recalculés au fil des propagations).
+    assigner_arbitres_elimination(t)
 
 
 def elimination_creee(t: Tournoi) -> bool:
@@ -296,6 +307,8 @@ def enregistrer_resultat(
     m.points_a, m.points_b = points_a, points_b
     if m.phase == Phase.ELIMINATION:
         propager_vainqueur(t, m)
+        # De nouveaux matchs deviennent "prêts" : on (ré)affecte les arbitres.
+        assigner_arbitres_elimination(t)
 
 
 def enregistrer_set_sec(t: Tournoi, match_id: int, points_a: int, points_b: int) -> None:

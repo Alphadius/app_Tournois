@@ -79,6 +79,7 @@ class Match:
     # ordonnancement
     terrain: Optional[int] = None   # n° de terrain (1..N)
     vague: Optional[int] = None     # n° de vague (créneau parallèle)
+    arbitre: Optional[Equipe] = None  # équipe qui arbitre (ne joue pas ce match)
     # élimination directe (bracket)
     groupe: Optional[str] = None    # "Principale" / "Consolante"
     tour_elim: Optional[int] = None  # 1 = premier tour du bracket
