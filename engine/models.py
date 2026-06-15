@@ -53,7 +53,7 @@ class ReglesScore:
       - "ratio_sets"  : (sets gagnés - sets perdus)
     """
     format_match: str = "set_sec"      # "set_sec" ou "best_of"
-    points_pour_gagner: int = 25       # cible de points d'un set sec
+    points_pour_gagner: int = 25       # cible par défaut / rétro-compat (voir points_par_phase)
     points_victoire: int = 3
     points_defaite: int = 0
     points_nul: int = 1                # volley = rarement de nul, mais on le garde
@@ -61,6 +61,18 @@ class ReglesScore:
     departage: list[str] = field(
         default_factory=lambda: ["points", "confrontation", "ratio_points", "ratio_sets"]
     )
+    # Cible de points (set sec) selon la phase : brassage/suisse = 15,
+    # principale/consolante = 21, élimination directe = 25.
+    points_par_phase: dict[str, int] = field(
+        default_factory=lambda: {
+            "brassage": 15, "principale": 21, "consolante": 21, "elimination": 25,
+        }
+    )
+
+    def points_cible(self, phase) -> int:
+        """Points pour gagner un match de cette phase (défaut : points_pour_gagner)."""
+        cle = phase.value if hasattr(phase, "value") else str(phase)
+        return self.points_par_phase.get(cle, self.points_pour_gagner)
 
 
 @dataclass

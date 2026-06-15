@@ -46,7 +46,7 @@ th { background: #eee; }
 
 
 def feuille_html(tournoi_nom: str, titre: str, matchs: list,
-                 classements: dict, nb_terrains: int) -> str:
+                 classements: dict, nb_terrains: int, regles=None) -> str:
     # --- planning groupé par vague ---
     par_vague: dict = defaultdict(list)
     for m in matchs:
@@ -59,10 +59,13 @@ def feuille_html(tournoi_nom: str, titre: str, matchs: list,
             terrain = f"Terrain {m.terrain}" if m.terrain else "—"
             arbitre = getattr(m, "arbitre", None)
             arb = _nom(arbitre) if arbitre is not None else "—"
+            cible = ""
+            if regles is not None:
+                cible = f" — 🎯 {regles.points_cible(m.phase)} pts"
             lignes += (
                 f"<tr><td class='terr'>{terrain}</td>"
                 f"<td>{_nom(m.equipe_a)} <span class='vs'>vs</span> {_nom(m.equipe_b)}"
-                f" <small>({escape(m.poule)})</small></td>"
+                f" <small>({escape(m.poule)}{cible})</small></td>"
                 f"<td class='arb'>{arb}</td>"
                 f"<td class='score'>{_score(m)}</td></tr>"
             )

@@ -145,8 +145,14 @@ def ecran_creation():
                 qualifies = 1
                 st.caption("ℹ️ En système suisse : la **moitié haute** du classement "
                            "va en principale, la moitié basse en consolante.")
-            points_gagner = st.number_input(
-                "Points pour gagner un match (set sec)", 1, 99, 25, step=1)
+            st.markdown("**Points pour gagner un match (set sec)**")
+            pts_brassage = st.number_input(
+                "Brassage / système suisse", 1, 99, 15, step=1, key="pts_brassage",
+                help="Cible de points en phase de classement.")
+            pts_finales = st.number_input(
+                "Poule principale / consolante", 1, 99, 21, step=1, key="pts_finales")
+            pts_elim = st.number_input(
+                "Élimination directe", 1, 99, 25, step=1, key="pts_elim")
             pts_v = st.number_input("Points de classement / victoire", 0, 10, 3, step=1)
             pts_d = st.number_input("Points de classement / défaite", 0, 10, 0, step=1)
             aller_retour = (st.checkbox("Aller-retour (matchs en double)", value=False)
@@ -161,10 +167,16 @@ def ecran_creation():
         noms = [n for n in noms_brut.splitlines() if n.strip()]
         if not noms:
             noms = [f"Équipe {i}" for i in range(1, int(nb_equipes) + 1)]
+        points_par_phase = {
+            "brassage": int(pts_brassage),
+            "principale": int(pts_finales),
+            "consolante": int(pts_finales),
+            "elimination": int(pts_elim),
+        }
         regles = ReglesScore(
-            format_match="set_sec", points_pour_gagner=int(points_gagner),
+            format_match="set_sec", points_pour_gagner=int(pts_elim),
             points_victoire=int(pts_v), points_defaite=int(pts_d),
-            aller_retour=aller_retour)
+            aller_retour=aller_retour, points_par_phase=points_par_phase)
         suisse_nb_tours = 0 if suisse_illimite else int(suisse_tours)
         try:
             t = creer_tournoi(
@@ -190,10 +202,19 @@ def sidebar_reglages(t):
     with st.sidebar:
         st.header("⚙️ Réglages")
         st.caption(f"Tournoi : **{t.nom}**")
+        ppp = getattr(t.regles, "points_par_phase", None) or {}
         with st.form("reglages"):
-            st.markdown("**Scoring**")
-            ppg = st.number_input("Points pour gagner un match", 1, 99,
-                                  t.regles.points_pour_gagner, step=1)
+            st.markdown("**Points pour gagner (set sec) par phase**")
+            ppg_brassage = st.number_input(
+                "Brassage / système suisse", 1, 99,
+                ppp.get("brassage", t.regles.points_pour_gagner), step=1)
+            ppg_finales = st.number_input(
+                "Poule principale / consolante", 1, 99,
+                ppp.get("principale", t.regles.points_pour_gagner), step=1)
+            ppg_elim = st.number_input(
+                "Élimination directe", 1, 99,
+                ppp.get("elimination", t.regles.points_pour_gagner), step=1)
+            st.markdown("**Classement**")
             pv = st.number_input("Points de classement / victoire", 0, 10,
                                  t.regles.points_victoire, step=1)
             pd = st.number_input("Points de classement / défaite", 0, 10,
@@ -209,8 +230,16 @@ def sidebar_reglages(t):
                 default=t.regles.departage, format_func=lambda k: criteres[k])
             if st.form_submit_button("💾 Appliquer", type="primary",
                                      use_container_width=True):
-                maj_regles(t, points_pour_gagner=int(ppg), points_victoire=int(pv),
-                           points_defaite=int(pd), departage=ordre or t.regles.departage)
+                points_par_phase = {
+                    "brassage": int(ppg_brassage),
+                    "principale": int(ppg_finales),
+                    "consolante": int(ppg_finales),
+                    "elimination": int(ppg_elim),
+                }
+                maj_regles(t, points_pour_gagner=int(ppg_elim),
+                           points_victoire=int(pv), points_defaite=int(pd),
+                           points_par_phase=points_par_phase,
+                           departage=ordre or t.regles.departage)
                 st.rerun()
 
         st.divider()
@@ -247,6 +276,15 @@ def _nom(equipe):
     return equipe.nom if equipe is not None else "— à déterminer —"
 
 
+def _points_cible(regles, phase) -> int:
+    """Points cible d'une phase, robuste aux objets ReglesScore d'avant le refactor."""
+    if hasattr(regles, "points_cible"):
+        return regles.points_cible(phase)
+    ppp = getattr(regles, "points_par_phase", None) or {}
+    cle = phase.value if hasattr(phase, "value") else str(phase)
+    return ppp.get(cle, getattr(regles, "points_pour_gagner", 25))
+
+
 def carte_match(t, m, contexte: str):
     """Affiche un match avec saisie de score (set sec)."""
     if not m.pret:
@@ -256,7 +294,8 @@ def carte_match(t, m, contexte: str):
         return
     etat = "✅" if m.joue else "⏳"
     lieu = f"Terrain {m.terrain}" if m.terrain else ""
-    st.markdown(f"{etat} *{lieu}* — {m.poule}")
+    cible = _points_cible(t.regles, m.phase)
+    st.markdown(f"{etat} *{lieu}* — {m.poule}  ·  🎯 {cible} pts")
     arbitre = getattr(m, "arbitre", None)
     if arbitre is not None:
         st.caption(f"🟨 Arbitre : {arbitre.nom}")
@@ -280,7 +319,8 @@ def bouton_impression(t, titre: str, matchs, classements, cle: str):
     """Bouton de téléchargement d'une feuille HTML imprimable (planning + classement)."""
     if not matchs:
         return
-    html = feuille_html(t.nom, titre, matchs, classements, t.nb_terrains)
+    html = feuille_html(t.nom, titre, matchs, classements, t.nb_terrains,
+                        regles=t.regles)
     nom_fichier = f"planning_{titre}".lower().replace(" ", "_").replace("·", "")
     st.download_button(
         "🖨️ Planning imprimable (.html)", data=html,
@@ -471,7 +511,13 @@ def ecran_tournoi(t):
         c3.metric("Système suisse", mode)
     else:
         c3.metric("Tours brassage", t.nb_tours_brassage)
-    c4.metric("Pts pour gagner", t.regles.points_pour_gagner)
+    ppp = getattr(t.regles, "points_par_phase", None) or {}
+    if ppp:
+        c4.metric("Pts (brass./fin./élim.)",
+                  f"{ppp.get('brassage', '?')}/{ppp.get('principale', '?')}"
+                  f"/{ppp.get('elimination', '?')}")
+    else:
+        c4.metric("Pts pour gagner", t.regles.points_pour_gagner)
 
     # Les tours de classement sont dérivés des matchs (vaut pour poules ET suisse).
     tours = sorted({m.tour for m in t.matchs if m.phase == Phase.BRASSAGE and m.tour})
