@@ -458,6 +458,43 @@ def test_arbitres_elimination():
     print("  [arbitres] élimination : arbitres internes recalculés au fil du bracket  OK")
 
 
+def test_statistiques():
+    """Bilan chiffré cohérent sur un tournoi complet (poules -> finales -> élim)."""
+    from engine import statistiques
+    from printview import feuille_stats_html
+    noms = ["A", "B", "C", "D", "E", "F", "G", "H"]
+    t = creer_tournoi("Bilan", noms, nb_poules=2, nb_terrains=2, nb_tours_brassage=2)
+    lancer_tour_brassage(t, 1)
+    jouer_matchs(t, t.matchs_tour(1))
+    generer_tour_brassage_suivant(t, 1)
+    jouer_matchs(t, t.matchs_tour(2))
+    generer_poules_finales(t)
+    jouer_matchs(t, t.matchs_de(Phase.PRINCIPALE) + t.matchs_de(Phase.CONSOLANTE))
+    generer_elimination(t)
+    jouer_bracket(t)
+
+    s = statistiques(t)
+    joues = [m for m in t.matchs if m.joue]
+    assert s["nb_equipes"] == 8
+    assert s["matchs_joues"] == len(joues) > 0
+    # somme des matchs par équipe = 2x le nombre de matchs joués
+    assert sum(d["joues"] for d in s["equipes"]) == 2 * s["matchs_joues"]
+    # points total = somme des points des deux équipes sur tous les matchs joués
+    attendu = sum((m.points_a or 0) + (m.points_b or 0) for m in joues)
+    assert s["points_total"] == attendu
+    assert sum(d["points_pour"] for d in s["equipes"]) == attendu
+    # arbitrages : autant d'arbitrages que de matchs (joués) ayant un arbitre
+    nb_arb = sum(1 for m in t.matchs if getattr(m, "arbitre", None) is not None)
+    assert sum(d["arbitrages"] for d in s["equipes"]) == nb_arb
+    # podium présent pour les deux compétitions
+    assert "Principale" in s["podium"] and "Consolante" in s["podium"]
+    # le rendu HTML ne plante pas et contient le nom du tournoi
+    html = feuille_stats_html(s)
+    assert "Bilan" in html and "Classement des équipes" in html
+    print(f"  [stats] {s['matchs_joues']} matchs, {s['points_total']} points, "
+          f"{s['nb_equipes']} équipes  OK")
+
+
 if __name__ == "__main__":
     print("Tests moteur :")
     test_scheduler_parallele()
@@ -476,4 +513,5 @@ if __name__ == "__main__":
     test_finales_paralleles()
     test_repartition_par_taille()
     test_arbitres_elimination()
+    test_statistiques()
     print("Tout est vert.")

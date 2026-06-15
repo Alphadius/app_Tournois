@@ -14,6 +14,7 @@ from .scheduler import (
     ordonnancer_elimination, ordonnancer_parallele,
 )
 from .persistence import dumps, from_dict, loads, to_dict
+from .stats import statistiques
 from .service import (
     brassage_termine, classement_global_tour, classements_phase, classements_tour,
     creer_tournoi, elimination_creee, elimination_terminee, enregistrer_resultat,
@@ -49,4 +50,6 @@ __all__ = [
     "tailles_poules", "tour_brassage_termine", "vainqueurs_finals",
     # persistence
     "dumps", "loads", "to_dict", "from_dict",
+    # statistiques
+    "statistiques",
 ]

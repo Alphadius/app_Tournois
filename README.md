@@ -213,6 +213,21 @@ avec terrain, **arbitre** et points cible, + classements). Ouvre le fichier puis
 `Cmd + P` (macOS) ou `Ctrl + P` (Windows) pour imprimer ou enregistrer en PDF — pratique
 pour afficher le planning à côté des terrains.
 
+### h. Le bilan du tournoi (statistiques)
+
+À la fin (onglet **Élimination**) ou à tout moment depuis la barre latérale, le bouton
+**📊 Bilan du tournoi** télécharge une **feuille HTML récapitulative** :
+- les **chiffres clés** : équipes, matchs joués, points et sets joués, vagues, moyenne de
+  points par match, marge moyenne de victoire ;
+- les **podiums** (🥇🥈🥉) de chaque poule finale ;
+- des **faits marquants** : plus large victoire, match le plus serré, match le plus
+  prolifique, meilleure attaque, meilleure défense, équipe qui a le plus arbitré ;
+- un **bilan par phase** (matchs et points) ;
+- le **classement complet des équipes** (joués, victoires, défaites, points marqués /
+  encaissés, différence, nombre de matchs arbitrés).
+
+Comme pour le planning, ouvre le fichier puis `Cmd/Ctrl + P` pour l'imprimer ou le garder en PDF.
+
 ---
 
 ## 6. En cas de souci
@@ -239,6 +254,7 @@ app_Tournois/
 │   ├── suisse.py     #   appariements du système suisse
 │   ├── bracket.py    #   tableaux à élimination directe + petite finale
 │   ├── service.py    #   enchaînement des phases du tournoi
+│   ├── stats.py      #   bilan chiffré de fin de tournoi
 │   └── persistence.py#   sauvegarde / chargement JSON
 ├── test_engine.py    # tests automatiques du moteur
 └── requirements.txt  # dépendances à installer

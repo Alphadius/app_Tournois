@@ -18,11 +18,11 @@ from engine import (
     generer_elimination, generer_poules_finales, generer_tour_brassage_suivant,
     lancer_tour_brassage, loads, maj_regles, nb_poules_pour_taille,
     nb_tours_recommande, podium, poules_finales_creees, poules_finales_terminees,
-    suisse_termine, tailles_poules, tour_brassage_termine, tour_suisse_termine,
-    tours_suisse,
+    statistiques, suisse_termine, tailles_poules, tour_brassage_termine,
+    tour_suisse_termine, tours_suisse,
 )
 from engine.ranking import classement_poule
-from printview import feuille_html
+from printview import feuille_html, feuille_stats_html
 
 st.set_page_config(page_title="Tournoi Volley", page_icon="🏐", layout="wide")
 
@@ -283,6 +283,12 @@ def sidebar_reglages(t):
                 st.rerun()
 
         st.divider()
+        st.markdown("**Bilan**")
+        st.caption("Récapitulatif chiffré du tournoi (matchs, points, podiums, "
+                   "faits marquants…).")
+        bouton_stats(t, "sidebar")
+
+        st.divider()
         st.markdown("**Affichage**")
         st.checkbox("Afficher la colonne Δpts", key="show_dpts", value=False)
 
@@ -353,6 +359,22 @@ def bouton_impression(t, titre: str, matchs, classements, cle: str):
         key=f"print_{cle}",
         help="Télécharge une feuille à ouvrir puis imprimer (Cmd/Ctrl+P), "
              "ou enregistrer en PDF.")
+
+
+def bouton_stats(t, cle: str):
+    """Bouton de téléchargement du bilan statistique HTML du tournoi."""
+    stats = statistiques(t)
+    if stats["matchs_joues"] == 0:
+        st.caption("Disponible dès qu'un match est joué.")
+        return
+    html = feuille_stats_html(stats)
+    nom_fichier = (t.nom.strip().lower().replace(" ", "_") or "tournoi")
+    st.download_button(
+        "📊 Bilan du tournoi (.html)", data=html,
+        file_name=f"stats_{nom_fichier}.html", mime="text/html",
+        key=f"stats_{cle}", use_container_width=True,
+        help="Récapitulatif à ouvrir puis imprimer / enregistrer en PDF "
+             "(Cmd/Ctrl+P).")
 
 
 def afficher_planning(t, matchs, titre: str, contexte: str):
@@ -521,6 +543,11 @@ def onglet_elimination(t):
         if any(m.groupe == groupe for m in t.matchs_de(Phase.ELIMINATION)):
             afficher_bracket(t, groupe)
             st.divider()
+
+    st.subheader("📊 Bilan du tournoi")
+    st.caption("Matchs et points joués, classement complet, faits marquants, "
+               "podiums — à imprimer ou garder en PDF.")
+    bouton_stats(t, "elimination")
 
 
 def ecran_tournoi(t):
