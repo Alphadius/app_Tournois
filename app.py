@@ -55,17 +55,21 @@ def restaurer_autosave():
 
 
 def reset():
+    """Revient à l'écran de création SANS supprimer la sauvegarde auto.
+
+    On vide juste la session et on lève un drapeau pour forcer l'écran de
+    création (sinon `main()` restaurerait aussitôt l'ancien tournoi). La
+    sauvegarde n'est écrasée que si un nouveau tournoi est réellement créé.
+    """
     st.session_state.pop("tournoi", None)
-    try:
-        AUTOSAVE.unlink(missing_ok=True)
-    except OSError:
-        pass
+    st.session_state["forcer_creation"] = True
 
 
 def charger_fichier(uploaded) -> bool:
     """Charge un tournoi depuis un fichier .json téléversé. True si succès."""
     try:
         st.session_state["tournoi"] = loads(uploaded.getvalue().decode("utf-8"))
+        st.session_state.pop("forcer_creation", None)
         return True
     except Exception as e:  # noqa: BLE001 - on remonte l'erreur à l'utilisateur
         st.error(f"Fichier invalide : {e}")
@@ -127,6 +131,10 @@ def ecran_creation():
                 regles=regles, qualifies_principale_par_poule=int(qualifies))
             lancer_tour_brassage(t, 1)
             st.session_state["tournoi"] = t
+            # Création effective : on quitte le mode "écran de création" et la
+            # sauvegarde auto sera écrasée par ce nouveau tournoi au prochain rendu.
+            st.session_state.pop("forcer_creation", None)
+            autosave(t)
             st.rerun()
         except ValueError as e:
             st.error(str(e))
@@ -402,7 +410,10 @@ def ecran_tournoi(t):
 
 def main():
     t = tournoi()
-    if t is None:
+    # Si l'utilisateur a demandé un nouveau tournoi, on n'auto-restaure pas :
+    # on le laisse sur l'écran de création (la sauvegarde du précédent reste
+    # intacte tant qu'il n'a pas créé le nouveau).
+    if t is None and not st.session_state.get("forcer_creation"):
         t = restaurer_autosave()
         if t is not None:
             st.session_state["tournoi"] = t
