@@ -213,21 +213,17 @@ def generer_poules_finales(t: Tournoi) -> None:
     if not brassage_termine(t):
         raise ValueError("La phase de classement n'est pas terminée.")
 
-    principale: list[Equipe] = []
-    consolante: list[Equipe] = []
+    # Classement général unique (poules ou suisse) : moitié haute -> principale,
+    # le reste -> consolante. En cas d'effectif impair, l'équipe du milieu monte
+    # en principale.
     if _est_suisse(t):
-        # Classement global unique : moitié haute -> principale, le reste -> consolante.
         from .suisse import classement_suisse
         classees = [ligne.equipe for ligne in classement_suisse(t)]
-        moitie = (len(classees) + 1) // 2
-        principale = classees[:moitie]
-        consolante = classees[moitie:]
     else:
-        classements = classements_tour(t, t.nb_tours_brassage)
-        k = t.qualifies_principale_par_poule
-        for lignes in classements.values():
-            for rang, ligne in enumerate(lignes):
-                (principale if rang < k else consolante).append(ligne.equipe)
+        classees = classement_global_tour(t, t.nb_tours_brassage)
+    moitie = (len(classees) + 1) // 2
+    principale = classees[:moitie]
+    consolante = classees[moitie:]
 
     if principale:
         t.poules.append(Poule(nom="Principale", phase=Phase.PRINCIPALE, equipes=principale))

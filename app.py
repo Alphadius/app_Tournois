@@ -161,15 +161,11 @@ def ecran_creation():
                     help=f"Recommandé pour départager un vainqueur : "
                          f"~{nb_tours_recommande(int(nb_equipes))} tours.")
         with col2:
-            if systeme == "poules":
-                qualifies = st.number_input(
-                    "Qualifiés en principale (par poule du dernier tour)", 1, 32, 2, step=1,
-                    help="Les meilleurs de chaque poule montent en principale, "
-                         "les autres en consolante.")
-            else:
-                qualifies = 1
-                st.caption("ℹ️ En système suisse : la **moitié haute** du classement "
-                           "va en principale, la moitié basse en consolante.")
+            # Split principale/consolante = moitié haute / moitié basse du
+            # classement général (plus de réglage de qualifiés par poule).
+            qualifies = 1
+            st.caption("ℹ️ Poule **principale** = moitié haute du classement "
+                       "général · **consolante** = moitié basse.")
             st.markdown("**Points pour gagner un match (set sec)**")
             pts_brassage = st.number_input(
                 "Brassage / système suisse", 1, 99, 15, step=1, key="pts_brassage",
