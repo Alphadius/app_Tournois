@@ -396,6 +396,11 @@ def onglet_suisse(t, tour: int):
         return
 
     st.success(f"Tour {tour} terminé ✅")
+    # Les boutons d'action ne s'affichent que dans l'onglet du DERNIER tour créé,
+    # sinon le même bouton (même key) apparaîtrait dans chaque onglet terminé.
+    if tour != max(tours_suisse(t)):
+        st.caption(f"Tour {tour + 1} déjà lancé (onglet suivant).")
+        return
     if suisse_termine(t):
         if not poules_finales_creees(t):
             st.success("🏁 Système suisse terminé.")
@@ -405,13 +410,11 @@ def onglet_suisse(t, tour: int):
                 st.rerun()
         else:
             st.caption("Poules finales déjà créées (onglet Finales).")
-    elif tour == max(tours_suisse(t)):
+    else:
         if st.button(f"➡️ Générer le tour {tour + 1} (appariement par niveau)",
                      type="primary", key=f"next_suisse_{tour}"):
             generer_tour_brassage_suivant(t, tour)
             st.rerun()
-    else:
-        st.caption(f"Tour {tour + 1} déjà lancé (onglet suivant).")
 
 
 def onglet_finales(t):
