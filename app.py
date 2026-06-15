@@ -13,10 +13,12 @@ from pathlib import Path
 import streamlit as st
 
 from engine import (
-    Phase, ReglesScore, classements_tour, creer_tournoi, dumps, elimination_creee,
-    enregistrer_set_sec, generer_elimination, generer_poules_finales,
-    generer_tour_brassage_suivant, lancer_tour_brassage, loads, maj_regles, podium,
-    poules_finales_creees, poules_finales_terminees, tour_brassage_termine,
+    Phase, ReglesScore, bye_du_tour, classement_suisse, classements_tour,
+    creer_tournoi, dumps, elimination_creee, enregistrer_set_sec,
+    generer_elimination, generer_poules_finales, generer_tour_brassage_suivant,
+    lancer_tour_brassage, loads, maj_regles, nb_tours_recommande, podium,
+    poules_finales_creees, poules_finales_terminees, suisse_termine,
+    tour_brassage_termine, tour_suisse_termine, tours_suisse,
 )
 from engine.ranking import classement_poule
 from printview import feuille_html
@@ -99,26 +101,56 @@ def ecran_creation():
             if charger_fichier(fichier):
                 st.rerun()
 
+    # Le choix du système est HORS du formulaire : sa sélection déclenche un
+    # rerun qui adapte les champs affichés (impossible dans un st.form figé).
+    systeme_label = st.radio(
+        "Système de la phase de classement",
+        ["Poules de brassage", "Système suisse"], horizontal=True,
+        help="• Poules de brassage : poules re-réparties par niveau à chaque tour.\n"
+             "• Système suisse : à chaque tour, on oppose des équipes de niveau "
+             "proche, sans rejouer le même adversaire.")
+    systeme = "suisse" if systeme_label == "Système suisse" else "poules"
+
     with st.form("creation"):
         col1, col2 = st.columns(2)
         with col1:
             nom = st.text_input("Nom du tournoi", "Tournoi du club")
             nb_equipes = st.number_input("Nombre d'équipes", 2, 64, 8, step=1)
-            nb_poules = st.number_input("Poules par tour de brassage", 1, 16, 2, step=1)
-            nb_tours = st.number_input(
-                "Tours de brassage", 1, 6, 1, step=1,
-                help="Après chaque tour, les équipes sont re-réparties dans de "
-                     "nouvelles poules selon le classement (poules de niveau).")
             nb_terrains = st.number_input("Terrains (matchs en parallèle)", 1, 16, 3, step=1)
+            if systeme == "poules":
+                nb_poules = st.number_input("Poules par tour de brassage", 1, 16, 2, step=1)
+                nb_tours = st.number_input(
+                    "Tours de brassage", 1, 6, 1, step=1,
+                    help="Après chaque tour, les équipes sont re-réparties dans de "
+                         "nouvelles poules selon le classement (poules de niveau).")
+                suisse_illimite, suisse_tours = True, 1
+            else:
+                nb_poules, nb_tours = 1, 1
+                suisse_illimite = st.checkbox(
+                    "Nombre de tours illimité", value=True,
+                    help="Coché : on enchaîne les tours jusqu'à ce qu'une seule "
+                         "équipe reste invaincue. Décoché : nombre de tours fixé.")
+                suisse_tours = st.number_input(
+                    "Nombre de tours (si fixé)", 1, 30,
+                    nb_tours_recommande(int(nb_equipes)), step=1,
+                    help=f"Recommandé pour départager un vainqueur : "
+                         f"~{nb_tours_recommande(int(nb_equipes))} tours.")
         with col2:
-            qualifies = st.number_input(
-                "Qualifiés en principale (par poule du dernier tour)", 1, 32, 2, step=1,
-                help="Les meilleurs de chaque poule montent en principale, les autres en consolante.")
+            if systeme == "poules":
+                qualifies = st.number_input(
+                    "Qualifiés en principale (par poule du dernier tour)", 1, 32, 2, step=1,
+                    help="Les meilleurs de chaque poule montent en principale, "
+                         "les autres en consolante.")
+            else:
+                qualifies = 1
+                st.caption("ℹ️ En système suisse : la **moitié haute** du classement "
+                           "va en principale, la moitié basse en consolante.")
             points_gagner = st.number_input(
                 "Points pour gagner un match (set sec)", 1, 99, 25, step=1)
             pts_v = st.number_input("Points de classement / victoire", 0, 10, 3, step=1)
             pts_d = st.number_input("Points de classement / défaite", 0, 10, 0, step=1)
-            aller_retour = st.checkbox("Aller-retour (matchs en double)", value=False)
+            aller_retour = (st.checkbox("Aller-retour (matchs en double)", value=False)
+                            if systeme == "poules" else False)
 
         st.markdown("**Noms des équipes** (un par ligne, vide = noms automatiques)")
         noms_brut = st.text_area("Équipes", height=140, label_visibility="collapsed",
@@ -133,11 +165,13 @@ def ecran_creation():
             format_match="set_sec", points_pour_gagner=int(points_gagner),
             points_victoire=int(pts_v), points_defaite=int(pts_d),
             aller_retour=aller_retour)
+        suisse_nb_tours = 0 if suisse_illimite else int(suisse_tours)
         try:
             t = creer_tournoi(
                 nom=nom, noms_equipes=noms, nb_poules=int(nb_poules),
                 nb_terrains=int(nb_terrains), nb_tours_brassage=int(nb_tours),
-                regles=regles, qualifies_principale_par_poule=int(qualifies))
+                regles=regles, qualifies_principale_par_poule=int(qualifies),
+                systeme=systeme, suisse_nb_tours=suisse_nb_tours)
             lancer_tour_brassage(t, 1)
             st.session_state["tournoi"] = t
             # Création effective : on quitte le mode "écran de création" et la
@@ -344,6 +378,42 @@ def onglet_brassage(t, tour: int):
             st.caption("Poules finales déjà créées (onglet Finales).")
 
 
+def onglet_suisse(t, tour: int):
+    cl = classement_suisse(t)
+    afficher_classements({"Classement général (système suisse)": cl},
+                         f"Classement après le tour {tour}")
+    bye = bye_du_tour(t, tour)
+    if bye is not None:
+        st.info(f"🎟️ **{bye.nom}** est exemptée ce tour (victoire offerte).")
+    matchs = t.matchs_tour(tour)
+    bouton_impression(t, f"Suisse Tour {tour}", matchs,
+                      {"Classement général": cl}, cle=f"suisse_{tour}")
+    afficher_planning(t, matchs, "Planning des matchs", f"suisse_{tour}")
+
+    if not tour_suisse_termine(t, tour):
+        restants = sum(1 for m in matchs if not m.joue)
+        st.info(f"Termine ce tour pour continuer ({restants} match(s) restant(s)).")
+        return
+
+    st.success(f"Tour {tour} terminé ✅")
+    if suisse_termine(t):
+        if not poules_finales_creees(t):
+            st.success("🏁 Système suisse terminé.")
+            if st.button("🏁 Générer poule principale & consolante",
+                         type="primary", key="gen_finales_suisse"):
+                generer_poules_finales(t)
+                st.rerun()
+        else:
+            st.caption("Poules finales déjà créées (onglet Finales).")
+    elif tour == max(tours_suisse(t)):
+        if st.button(f"➡️ Générer le tour {tour + 1} (appariement par niveau)",
+                     type="primary", key=f"next_suisse_{tour}"):
+            generer_tour_brassage_suivant(t, tour)
+            st.rerun()
+    else:
+        st.caption(f"Tour {tour + 1} déjà lancé (onglet suivant).")
+
+
 def onglet_finales(t):
     classements = {
         p.nom: classement_poule(p, t.matchs, t.regles)
@@ -384,15 +454,23 @@ def onglet_elimination(t):
 
 def ecran_tournoi(t):
     sidebar_reglages(t)
+    est_suisse = getattr(t, "systeme", "poules") == "suisse"
     st.title(f"🏐 {t.nom}")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Équipes", len(t.equipes))
     c2.metric("Terrains", t.nb_terrains)
-    c3.metric("Tours brassage", t.nb_tours_brassage)
+    if est_suisse:
+        mode = "illimité" if getattr(t, "suisse_nb_tours", 0) == 0 \
+            else f"{t.suisse_nb_tours} tours"
+        c3.metric("Système suisse", mode)
+    else:
+        c3.metric("Tours brassage", t.nb_tours_brassage)
     c4.metric("Pts pour gagner", t.regles.points_pour_gagner)
 
-    tours = sorted({p.tour for p in t.poules if p.phase == Phase.BRASSAGE})
-    labels = [f"Brassage {n}" for n in tours]
+    # Les tours de classement sont dérivés des matchs (vaut pour poules ET suisse).
+    tours = sorted({m.tour for m in t.matchs if m.phase == Phase.BRASSAGE and m.tour})
+    prefixe = "Tour" if est_suisse else "Brassage"
+    labels = [f"{prefixe} {n}" for n in tours]
     if poules_finales_creees(t):
         labels.append("Finales")
     if elimination_creee(t):
@@ -402,7 +480,10 @@ def ecran_tournoi(t):
     idx = 0
     for n in tours:
         with onglets[idx]:
-            onglet_brassage(t, n)
+            if est_suisse:
+                onglet_suisse(t, n)
+            else:
+                onglet_brassage(t, n)
         idx += 1
     if poules_finales_creees(t):
         with onglets[idx]:

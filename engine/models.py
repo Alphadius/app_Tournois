@@ -137,6 +137,13 @@ class Tournoi:
     nb_tours_brassage: int = 1     # nb de tours de brassage
     # combien d'équipes de chaque poule de classement montent en principale
     qualifies_principale_par_poule: int = 1
+    # phase de classement : "poules" (brassage en poules) ou "suisse" (système suisse)
+    systeme: str = "poules"
+    # système suisse : 0 = nb de tours illimité (jusqu'à une seule équipe invaincue),
+    # > 0 = nombre de tours fixé
+    suisse_nb_tours: int = 0
+    # ids des équipes déjà exemptées (bye) en système suisse, pour ne pas répéter
+    suisse_byes: list[int] = field(default_factory=list)
     _id_seq: int = field(default=0, repr=False)
 
     def nouveau_match_id(self) -> int:

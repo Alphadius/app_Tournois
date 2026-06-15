@@ -4,6 +4,10 @@ from .models import (
     Equipe, Match, Phase, Poule, ReglesScore, Tournoi, creer_equipes,
 )
 from .ranking import LigneClassement, classement_poule
+from .suisse import (
+    bye_du_tour, classement_suisse, nb_tours_recommande, peut_generer_tour_suivant,
+    suisse_termine, tour_suisse_termine, tours_suisse,
+)
 from .scheduler import (
     generer_matchs_phase, generer_matchs_poule, generer_matchs_poules,
     ordonnancer, ordonnancer_elimination,
@@ -24,6 +28,9 @@ __all__ = [
     "Equipe", "Match", "Phase", "Poule", "ReglesScore", "Tournoi", "creer_equipes",
     # classement
     "LigneClassement", "classement_poule",
+    # système suisse
+    "bye_du_tour", "classement_suisse", "nb_tours_recommande",
+    "peut_generer_tour_suivant", "suisse_termine", "tour_suisse_termine", "tours_suisse",
     # scheduler
     "generer_matchs_phase", "generer_matchs_poule", "generer_matchs_poules",
     "ordonnancer", "ordonnancer_elimination",

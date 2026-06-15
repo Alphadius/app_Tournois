@@ -2,11 +2,12 @@
 from collections import defaultdict
 
 from engine import (
-    Phase, ReglesScore, brassage_termine, classements_tour, creer_tournoi,
-    dumps, elimination_terminee, enregistrer_set_sec, generer_bracket,
-    generer_elimination, generer_poules_finales, generer_tour_brassage_suivant,
-    lancer_tour_brassage, loads, ordre_tetes_de_serie, podium,
-    poules_finales_terminees, tour_brassage_termine, vainqueurs_finals,
+    Phase, ReglesScore, brassage_termine, bye_du_tour, classement_suisse,
+    classements_tour, creer_tournoi, dumps, elimination_terminee,
+    enregistrer_set_sec, generer_bracket, generer_elimination,
+    generer_poules_finales, generer_tour_brassage_suivant, lancer_tour_brassage,
+    loads, ordre_tetes_de_serie, podium, poules_finales_terminees, suisse_termine,
+    tour_brassage_termine, tours_suisse, vainqueurs_finals,
 )
 from engine.ranking import classement_poule
 
@@ -23,6 +24,17 @@ def jouer_matchs(t, matchs):
             enregistrer_set_sec(t, m.id, 25, 10)
         else:
             enregistrer_set_sec(t, m.id, 10, 25)
+
+
+def jouer_suisse(t):
+    """Lance et joue tous les tours d'un tournoi en système suisse."""
+    lancer_tour_brassage(t, 1)
+    for _ in range(50):
+        n = max(tours_suisse(t))
+        jouer_matchs(t, t.matchs_tour(n))
+        if suisse_termine(t):
+            break
+        generer_tour_brassage_suivant(t, n)
 
 
 def jouer_bracket(t):
@@ -194,6 +206,81 @@ def test_json_roundtrip():
     print("  [json] sauvegarde/chargement fidèle (podium + stabilité)  OK")
 
 
+def _verifier_suisse_sans_rematch(t):
+    """Aucune affiche rejouée, et aucune équipe ne joue 2x dans un même tour."""
+    paires = set()
+    for m in t.matchs:
+        if m.phase == Phase.BRASSAGE:
+            cle = frozenset((m.equipe_a.id, m.equipe_b.id))
+            assert cle not in paires, "affiche rejouée en système suisse"
+            paires.add(cle)
+    for n in tours_suisse(t):
+        ids = [e.id for mm in t.matchs_tour(n) for e in (mm.equipe_a, mm.equipe_b)]
+        assert len(ids) == len(set(ids)), f"tour {n}: une équipe joue 2x"
+
+
+def test_suisse_illimite():
+    # 8 équipes, nb de tours illimité : on s'arrête quand 1 seule équipe est invaincue.
+    noms = [f"E{i}" for i in range(1, 9)]
+    t = creer_tournoi("Suisse", noms, nb_poules=1, nb_terrains=2,
+                      systeme="suisse", suisse_nb_tours=0)
+    jouer_suisse(t)
+    assert suisse_termine(t)
+    _verifier_suisse_sans_rematch(t)
+    cl = classement_suisse(t)
+    invaincus = [l for l in cl if l.joues > 0 and l.defaites == 0]
+    assert len(invaincus) == 1, f"il doit rester 1 invaincu, pas {len(invaincus)}"
+    assert cl[0].equipe.nom == "E1", "E1 (gagne toujours) doit finir 1er"
+    # 8 équipes -> log2(8) = 3 tours suffisent
+    assert len(tours_suisse(t)) == 3, tours_suisse(t)
+    print(f"  [suisse] 8 équipes, {len(tours_suisse(t))} tours -> 1 invaincu (E1)  OK")
+
+
+def test_suisse_impair_bye():
+    # 7 équipes : à chaque tour une équipe est exemptée (bye), sans répétition.
+    noms = [f"E{i}" for i in range(1, 8)]
+    t = creer_tournoi("SuisseImpair", noms, nb_poules=1, nb_terrains=2,
+                      systeme="suisse", suisse_nb_tours=3)
+    jouer_suisse(t)
+    assert suisse_termine(t)
+    _verifier_suisse_sans_rematch(t)
+    byes = [bye_du_tour(t, n) for n in tours_suisse(t)]
+    assert all(b is not None for b in byes), "un tour sans bye alors que nb impair"
+    ids = [b.id for b in byes]
+    assert len(ids) == len(set(ids)), "une équipe exemptée deux fois"
+    print(f"  [suisse] 7 équipes, byes distincts {sorted(ids)}  OK")
+
+
+def test_suisse_flux_complet():
+    # Suisse -> principale/consolante (moitié/moitié) -> élimination.
+    noms = [f"E{i}" for i in range(1, 9)]
+    t = creer_tournoi("SuisseFlux", noms, nb_poules=1, nb_terrains=2,
+                      systeme="suisse", suisse_nb_tours=3)
+    jouer_suisse(t)
+    assert brassage_termine(t)
+
+    generer_poules_finales(t)
+    principale = t.poules_de(Phase.PRINCIPALE)[0]
+    consolante = t.poules_de(Phase.CONSOLANTE)[0]
+    assert len(principale.equipes) == 4 and len(consolante.equipes) == 4
+    # la moitié haute du classement suisse va en principale
+    top4 = {l.equipe.id for l in classement_suisse(t)[:4]}
+    assert {e.id for e in principale.equipes} == top4
+
+    jouer_matchs(t, t.matchs_de(Phase.PRINCIPALE) + t.matchs_de(Phase.CONSOLANTE))
+    generer_elimination(t)
+    jouer_bracket(t)
+    champions = vainqueurs_finals(t)
+    assert "Principale" in champions and "Consolante" in champions
+
+    # aller-retour JSON fidèle (y compris systeme/byes)
+    t2 = loads(dumps(t))
+    assert t2.systeme == "suisse" and t2.suisse_nb_tours == 3
+    assert dumps(t2) == dumps(t), "sérialisation suisse non stable"
+    print(f"  [suisse] flux complet, champion principale="
+          f"{champions['Principale'].nom}  OK")
+
+
 def test_flux_complet():
     noms = ["A", "B", "C", "D", "E", "F", "G", "H"]
     t = creer_tournoi("Tournoi", noms, nb_poules=2, nb_terrains=2,
@@ -239,5 +326,8 @@ if __name__ == "__main__":
     test_pas_de_petite_finale_a_deux()
     test_repartition_equilibree()
     test_json_roundtrip()
+    test_suisse_illimite()
+    test_suisse_impair_bye()
+    test_suisse_flux_complet()
     test_flux_complet()
     print("Tout est vert.")

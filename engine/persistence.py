@@ -33,6 +33,9 @@ def to_dict(t: Tournoi) -> dict:
         "nb_poules": getattr(t, "nb_poules", 1),
         "nb_tours_brassage": getattr(t, "nb_tours_brassage", 1),
         "qualifies_principale_par_poule": getattr(t, "qualifies_principale_par_poule", 1),
+        "systeme": getattr(t, "systeme", "poules"),
+        "suisse_nb_tours": getattr(t, "suisse_nb_tours", 0),
+        "suisse_byes": list(getattr(t, "suisse_byes", [])),
         "_id_seq": getattr(t, "_id_seq", 0),
         "regles": asdict(t.regles),
         "equipes": [{"id": e.id, "nom": e.nom} for e in t.equipes],
@@ -65,8 +68,11 @@ def from_dict(d: dict) -> Tournoi:
         nb_poules=d.get("nb_poules", 1),
         nb_tours_brassage=d.get("nb_tours_brassage", 1),
         qualifies_principale_par_poule=d.get("qualifies_principale_par_poule", 1),
+        systeme=d.get("systeme", "poules"),
+        suisse_nb_tours=d.get("suisse_nb_tours", 0),
     )
     t._id_seq = d.get("_id_seq", 0)
+    t.suisse_byes = list(d.get("suisse_byes", []))
 
     t.poules = [
         Poule(nom=p["nom"], phase=Phase(p["phase"]), tour=p.get("tour", 0),

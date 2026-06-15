@@ -20,6 +20,11 @@ from .scheduler import (
 _ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
+def _est_suisse(t: Tournoi) -> bool:
+    # getattr : tolère un objet d'une version antérieure (rechargement à chaud).
+    return getattr(t, "systeme", "poules") == "suisse"
+
+
 # --------------------------------------------------------------------------- #
 #  Répartition
 # --------------------------------------------------------------------------- #
@@ -62,14 +67,20 @@ def creer_tournoi(
     nb_tours_brassage: int = 1,
     regles: ReglesScore | None = None,
     qualifies_principale_par_poule: int = 1,
+    systeme: str = "poules",
+    suisse_nb_tours: int = 0,
 ) -> Tournoi:
     equipes = creer_equipes(noms_equipes)
     if len(equipes) < 2:
         raise ValueError("Il faut au moins 2 équipes.")
-    if nb_poules < 1 or nb_poules > len(equipes):
+    if systeme not in ("poules", "suisse"):
+        raise ValueError("Système de classement inconnu.")
+    if systeme == "poules" and (nb_poules < 1 or nb_poules > len(equipes)):
         raise ValueError("Nombre de poules invalide.")
-    if nb_tours_brassage < 1:
+    if systeme == "poules" and nb_tours_brassage < 1:
         raise ValueError("Il faut au moins 1 tour de brassage.")
+    if systeme == "suisse" and suisse_nb_tours < 0:
+        raise ValueError("Nombre de tours suisse invalide.")
 
     t = Tournoi(
         nom=nom,
@@ -79,8 +90,11 @@ def creer_tournoi(
         nb_poules=nb_poules,
         nb_tours_brassage=nb_tours_brassage,
         qualifies_principale_par_poule=qualifies_principale_par_poule,
+        systeme=systeme,
+        suisse_nb_tours=suisse_nb_tours,
     )
-    _creer_poules_brassage(t, repartir_serpentin(equipes, nb_poules), tour=1)
+    if systeme == "poules":
+        _creer_poules_brassage(t, repartir_serpentin(equipes, nb_poules), tour=1)
     return t
 
 
@@ -88,7 +102,11 @@ def creer_tournoi(
 #  Tours de brassage
 # --------------------------------------------------------------------------- #
 def lancer_tour_brassage(t: Tournoi, tour: int) -> None:
-    """Génère et ordonnance les matchs des poules d'un tour de brassage."""
+    """Génère et ordonnance les matchs d'un tour de classement (poules ou suisse)."""
+    if _est_suisse(t):
+        from .suisse import generer_tour_suisse
+        generer_tour_suisse(t, tour)
+        return
     if t.matchs_tour(tour):
         return  # déjà lancé
     poules = t.poules_tour(tour)
@@ -126,8 +144,14 @@ def classement_global_tour(t: Tournoi, tour: int) -> list[Equipe]:
 
 
 def generer_tour_brassage_suivant(t: Tournoi, tour_actuel: int) -> None:
-    """Re-répartit les équipes selon le classement global et crée le tour suivant."""
+    """Crée le tour de classement suivant (re-répartition en poules, ou tour suisse)."""
     tour_suivant = tour_actuel + 1
+    if _est_suisse(t):
+        from .suisse import generer_tour_suisse, suisse_termine
+        if suisse_termine(t):
+            raise ValueError("Le système suisse est déjà terminé.")
+        generer_tour_suisse(t, tour_suivant)
+        return
     if tour_suivant > t.nb_tours_brassage:
         raise ValueError("Tous les tours de brassage sont déjà créés.")
     if t.poules_tour(tour_suivant):
@@ -138,7 +162,10 @@ def generer_tour_brassage_suivant(t: Tournoi, tour_actuel: int) -> None:
 
 
 def brassage_termine(t: Tournoi) -> bool:
-    """Tous les tours de brassage prévus sont créés et joués."""
+    """La phase de classement est terminée (tous les tours prévus créés et joués)."""
+    if _est_suisse(t):
+        from .suisse import suisse_termine
+        return suisse_termine(t)
     dernier = t.nb_tours_brassage
     return bool(t.poules_tour(dernier)) and tour_brassage_termine(t, dernier)
 
@@ -147,19 +174,27 @@ def brassage_termine(t: Tournoi) -> bool:
 #  Poules finales (principale / consolante)
 # --------------------------------------------------------------------------- #
 def generer_poules_finales(t: Tournoi) -> None:
-    """À partir du dernier tour de brassage, crée principale + consolante."""
+    """À partir de la phase de classement, crée principale + consolante."""
     if any(p.phase in (Phase.PRINCIPALE, Phase.CONSOLANTE) for p in t.poules):
         return
     if not brassage_termine(t):
-        raise ValueError("Le brassage n'est pas terminé.")
+        raise ValueError("La phase de classement n'est pas terminée.")
 
-    classements = classements_tour(t, t.nb_tours_brassage)
-    k = t.qualifies_principale_par_poule
     principale: list[Equipe] = []
     consolante: list[Equipe] = []
-    for lignes in classements.values():
-        for rang, ligne in enumerate(lignes):
-            (principale if rang < k else consolante).append(ligne.equipe)
+    if _est_suisse(t):
+        # Classement global unique : moitié haute -> principale, le reste -> consolante.
+        from .suisse import classement_suisse
+        classees = [ligne.equipe for ligne in classement_suisse(t)]
+        moitie = (len(classees) + 1) // 2
+        principale = classees[:moitie]
+        consolante = classees[moitie:]
+    else:
+        classements = classements_tour(t, t.nb_tours_brassage)
+        k = t.qualifies_principale_par_poule
+        for lignes in classements.values():
+            for rang, ligne in enumerate(lignes):
+                (principale if rang < k else consolante).append(ligne.equipe)
 
     if principale:
         t.poules.append(Poule(nom="Principale", phase=Phase.PRINCIPALE, equipes=principale))
