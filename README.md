@@ -2,9 +2,14 @@
 
 Une petite application pour organiser un tournoi de volley : on saisit les équipes,
 l'outil génère les matchs, les répartit **en parallèle sur plusieurs terrains** (pour
-que personne n'attende trop longtemps), calcule les classements, puis enchaîne sur une
-**phase finale** (poule principale / consolante) et une **phase éliminatoire** (tableaux
-avec petite finale).
+que personne n'attende trop longtemps), désigne automatiquement des **équipes arbitres**,
+calcule les classements, puis enchaîne sur une **phase finale** (poule principale /
+consolante jouées **en parallèle**) et une **phase éliminatoire** (tableaux avec petite
+finale et podium).
+
+Pour la phase de classement, tu choisis entre deux formats : des **poules de brassage**
+(re-réparties par niveau à chaque tour) ou un **système suisse** (on oppose à chaque tour
+des équipes de niveau proche, sans rejouer le même adversaire).
 
 L'interface s'ouvre dans ton navigateur web, mais **tout tourne sur ta machine** : rien
 n'est envoyé sur internet.
@@ -124,46 +129,68 @@ cd ~/app_Tournois
 
 ### a. Créer un tournoi
 
-Sur l'écran d'accueil, remplis le formulaire :
+Sur l'écran d'accueil, choisis d'abord le **système de la phase de classement** :
+**poules de brassage** ou **système suisse**. Le formulaire s'adapte ensuite.
+
+Champs communs :
 - **Nom du tournoi**
 - **Nombre d'équipes**
-- **Nombre de poules de classement** (les groupes pour la première phase)
-- **Nombre de tours de brassage** (combien de fois on rebrasse les poules selon le niveau)
 - **Nombre de terrains** disponibles (combien de matchs peuvent se jouer **en même temps**)
-- **Points pour gagner un match** (ex. 25 — format « 1 set sec »)
+- **Points pour gagner un match**, réglables **par phase** : brassage / suisse (ex. 15),
+  poule principale / consolante (ex. 21), élimination directe (ex. 25). C'est un format
+  « 1 set sec » : tu saisis les points marqués, le vainqueur est celui qui en a le plus.
 - Les **noms des équipes** (un par ligne ; si tu laisses vide, elles s'appellent E1, E2, …)
 
-Clique **🏐 Créer le tournoi**.
+En **poules de brassage**, tu définis en plus :
+- la **répartition des poules**, au choix : soit **par nombre de poules**, soit **par nombre
+  d'équipes par poule**. Si le total n'est pas un multiple, l'outil équilibre tout seul
+  (ex. 10 équipes / 4 par poule → 3 poules de 4, 3 et 3) — pas de poule isolée ;
+- le **nombre de tours de brassage** (combien de fois on rebrasse les poules selon le niveau).
 
-### b. Les tours de brassage
+En **système suisse**, tu choisis le **nombre de tours** : *illimité* (on enchaîne jusqu'à
+ce qu'une seule équipe reste invaincue) ou *fixé* (utile quand le temps est compté).
+
+Clique **🏐 Créer le tournoi**. Un bouton **↩️ Reprendre le dernier tournoi** est aussi
+proposé si une sauvegarde automatique existe.
+
+### b. La phase de classement (brassage ou suisse)
 
 Pour chaque tour, l'outil affiche le **planning par vagues** : à chaque vague, jusqu'à N
 matchs se jouent en parallèle (N = nombre de terrains), et **aucune équipe ne joue deux
 fois dans la même vague**. La répartition est calculée pour **ne pas laisser une équipe trop
-longtemps sans jouer**.
+longtemps sans jouer**. Chaque match se voit attribuer une **équipe arbitre** parmi celles
+qui ne jouent pas à ce moment-là, répartie de façon **équitable**.
 
 Tu saisis les **scores** au fur et à mesure (les points de chaque équipe). Le **classement**
 se met à jour automatiquement. Quand tous les matchs d'un tour sont remplis, le bouton pour
-**lancer le tour suivant** apparaît : les équipes sont alors **re-réparties selon le
-classement** (les premières ensemble, les deuxièmes ensemble… = poules de niveau).
+**lancer le tour suivant** apparaît :
+- en **poules** : les équipes sont **re-réparties selon le classement** (les premières
+  ensemble, les deuxièmes ensemble… = poules de niveau) ;
+- en **suisse** : on apparie les équipes de classement proche, **sans rejouer un adversaire
+  déjà rencontré** (avec un nombre impair d'équipes, l'une est exemptée à tour de rôle et
+  marque une victoire).
 
 ### c. Les finales : poule principale / consolante
 
-Après le dernier tour de brassage, clique sur **générer les finales**. Selon le classement
-général, les meilleures équipes vont en **poule principale**, les autres en **poule
-consolante**. Chaque poule rejoue un mini-championnat, avec scores et classement comme avant.
+Après la phase de classement, clique sur **générer les finales**. Le classement général est
+**coupé en deux** : la **moitié haute** va en **poule principale**, la **moitié basse** en
+**poule consolante**. Les deux poules rejouent un mini-championnat et se déroulent **en
+parallèle sur des terrains dédiés** (par ex. avec 4 terrains : 2 pour la principale, 2 pour
+la consolante ; avec un nombre impair, le terrain en plus alterne entre les deux). Chaque
+match est arbitré par une équipe **de la même compétition**.
 
 ### d. La phase éliminatoire
 
 À la fin des finales, l'outil génère un **tableau à élimination directe pour chaque poule**.
 Le placement (têtes de série) est fait pour que **le 1er et le 2e d'une poule ne puissent se
 rencontrer qu'en finale**. Chaque tableau comporte une **petite finale** (match pour la 3e
-place). À la fin, le **podium** s'affiche avec 🥇🥈🥉.
+place), et les arbitres viennent toujours de la **même compétition**. À la fin, le **podium**
+s'affiche avec 🥇🥈🥉.
 
 ### e. Les réglages (barre latérale ⚙️)
 
 Dans le panneau de gauche, tu peux ajuster **en cours de tournoi** :
-- les points pour gagner un match,
+- les points pour gagner un match, **par phase** (brassage/suisse, finales, élimination),
 - les points attribués par victoire / défaite,
 - l'ordre des **critères de départage** (points, confrontation directe, ratio de points, ratio de sets),
 - afficher ou non la colonne **Δpts**.
@@ -181,9 +208,10 @@ Les classements se recalculent automatiquement à partir des scores déjà saisi
 
 ### g. Impression du planning
 
-Dans chaque onglet, le bouton d'impression génère une **feuille HTML** (planning des matchs +
-classements). Ouvre le fichier puis fais `Cmd + P` (macOS) ou `Ctrl + P` (Windows) pour
-imprimer ou enregistrer en PDF — pratique pour afficher le planning à côté des terrains.
+Dans chaque onglet, le bouton d'impression génère une **feuille HTML** (planning des matchs
+avec terrain, **arbitre** et points cible, + classements). Ouvre le fichier puis fais
+`Cmd + P` (macOS) ou `Ctrl + P` (Windows) pour imprimer ou enregistrer en PDF — pratique
+pour afficher le planning à côté des terrains.
 
 ---
 
@@ -207,7 +235,8 @@ app_Tournois/
 ├── engine/           # le « moteur » du tournoi (indépendant de l'interface)
 │   ├── models.py     #   équipes, matchs, poules, règles de score
 │   ├── ranking.py    #   calcul des classements et départages
-│   ├── scheduler.py  #   répartition des matchs en parallèle sur les terrains
+│   ├── scheduler.py  #   répartition des matchs en parallèle + arbitres
+│   ├── suisse.py     #   appariements du système suisse
 │   ├── bracket.py    #   tableaux à élimination directe + petite finale
 │   ├── service.py    #   enchaînement des phases du tournoi
 │   └── persistence.py#   sauvegarde / chargement JSON
