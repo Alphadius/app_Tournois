@@ -83,6 +83,15 @@ def ecran_creation():
     st.title("🏐 Nouveau tournoi de volley")
     st.caption("Configure le tournoi, puis lance le premier tour de brassage.")
 
+    dernier = restaurer_autosave()
+    if dernier is not None:
+        st.info(f"💾 Dernier tournoi en sauvegarde auto : **{dernier.nom}**")
+        if st.button("↩️ Reprendre le dernier tournoi", type="primary",
+                     use_container_width=True):
+            st.session_state["tournoi"] = dernier
+            st.session_state.pop("forcer_creation", None)
+            st.rerun()
+
     with st.expander("📂 Reprendre un tournoi sauvegardé (.json)"):
         fichier = st.file_uploader("Fichier du tournoi", type=["json"],
                                    key="upload_creation", label_visibility="collapsed")
