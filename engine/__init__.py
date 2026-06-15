@@ -19,9 +19,9 @@ from .service import (
     creer_tournoi, elimination_creee, elimination_terminee, enregistrer_resultat,
     enregistrer_set_sec, generer_elimination, generer_poules_finales,
     generer_tour_brassage_suivant, lancer_phase_classement, lancer_tour_brassage,
-    maj_regles, phase_classement_terminee, podium, poules_finales_creees,
-    poules_finales_terminees, repartir_serpentin, tour_brassage_termine,
-    vainqueurs_finals,
+    maj_regles, nb_poules_pour_taille, phase_classement_terminee, podium,
+    poules_finales_creees, poules_finales_terminees, repartir_serpentin,
+    tailles_poules, tour_brassage_termine, vainqueurs_finals,
 )
 
 __all__ = [
@@ -43,9 +43,10 @@ __all__ = [
     "classements_tour", "creer_tournoi", "elimination_creee", "elimination_terminee",
     "enregistrer_resultat", "enregistrer_set_sec", "generer_elimination",
     "generer_poules_finales", "generer_tour_brassage_suivant",
-    "lancer_phase_classement", "lancer_tour_brassage", "maj_regles", "podium",
-    "phase_classement_terminee", "poules_finales_creees", "poules_finales_terminees",
-    "repartir_serpentin", "tour_brassage_termine", "vainqueurs_finals",
+    "lancer_phase_classement", "lancer_tour_brassage", "maj_regles",
+    "nb_poules_pour_taille", "podium", "phase_classement_terminee",
+    "poules_finales_creees", "poules_finales_terminees", "repartir_serpentin",
+    "tailles_poules", "tour_brassage_termine", "vainqueurs_finals",
     # persistence
     "dumps", "loads", "to_dict", "from_dict",
 ]

@@ -50,6 +50,37 @@ def repartir_serpentin(equipes: list[Equipe], nb_poules: int) -> list[list[Equip
     return paquets
 
 
+def tailles_poules(nb_equipes: int, nb_poules: int) -> list[int]:
+    """Tailles des poules après répartition serpentin (équilibrées à 1 près).
+
+    Ex : 10 équipes / 3 poules -> [4, 3, 3]. Sert d'aperçu dans l'UI.
+    """
+    if nb_poules < 1 or nb_equipes < 0:
+        return []
+    q, r = divmod(nb_equipes, nb_poules)
+    return [q + 1] * r + [q] * (nb_poules - r)
+
+
+def nb_poules_pour_taille(nb_equipes: int, equipes_par_poule: int) -> int:
+    """Déduit un nombre de poules ÉQUILIBRÉES à partir d'une taille de poule visée.
+
+    On arrondit au plus proche (0,5 -> au-dessus) et on garantit au moins 2 équipes
+    par poule. Même si le nombre d'équipes n'est pas un multiple de la taille visée
+    (erreur de saisie fréquente), la répartition serpentin produit ensuite des
+    poules équilibrées (tailles différant d'au plus 1) — pas de poule isolée.
+
+    Ex : 10 équipes, 4 par poule -> 3 poules (4, 3, 3) ; 9 équipes, 4 par poule
+    -> 2 poules (5, 4).
+    """
+    if equipes_par_poule < 2:
+        raise ValueError("Il faut au moins 2 équipes par poule.")
+    if nb_equipes < 2:
+        return 1
+    from math import floor
+    k = floor(nb_equipes / equipes_par_poule + 0.5)
+    return max(1, min(k, nb_equipes // 2))
+
+
 def _creer_poules_brassage(t: Tournoi, paquets: list[list[Equipe]], tour: int) -> None:
     for idx, paquet in enumerate(paquets):
         t.poules.append(Poule(

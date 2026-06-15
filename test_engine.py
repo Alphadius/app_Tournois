@@ -396,6 +396,35 @@ def test_finales_paralleles():
           "arbitres internes  OK")
 
 
+def test_repartition_par_taille():
+    """Déduction du nb de poules à partir d'une taille visée, toujours équilibrée."""
+    from engine import nb_poules_pour_taille, tailles_poules
+    # multiple exact
+    assert nb_poules_pour_taille(12, 4) == 3
+    assert tailles_poules(12, 3) == [4, 4, 4]
+    # non-multiples -> poules équilibrées à 1 près (pas de poule isolée)
+    assert nb_poules_pour_taille(10, 4) == 3
+    assert tailles_poules(10, 3) == [4, 3, 3]
+    assert nb_poules_pour_taille(9, 4) == 2
+    assert tailles_poules(9, 2) == [5, 4]
+    assert nb_poules_pour_taille(11, 4) == 3
+    assert tailles_poules(11, 3) == [4, 4, 3]
+    # garde-fou : jamais de poule à 1 équipe
+    assert nb_poules_pour_taille(5, 2) == 2
+    assert tailles_poules(5, 2) == [3, 2]
+    # taille demandée >= nb d'équipes -> une seule poule
+    assert nb_poules_pour_taille(4, 8) == 1
+
+    # création réelle : les poules effectives sont équilibrées (écart <= 1)
+    noms = [f"E{i}" for i in range(1, 11)]  # 10 équipes, 4 par poule
+    k = nb_poules_pour_taille(len(noms), 4)
+    t = creer_tournoi("Rep", noms, nb_poules=k, nb_terrains=2)
+    tailles = sorted(len(p.equipes) for p in t.poules_de(Phase.BRASSAGE))
+    assert tailles == [3, 3, 4], tailles
+    assert max(tailles) - min(tailles) <= 1
+    print(f"  [poules] répartition par taille : 10 équipes/4 -> {k} poules {tailles}  OK")
+
+
 def test_arbitres_elimination():
     """En élimination, l'arbitre vient toujours de la même compétition, et de
     nouveaux arbitres apparaissent au fur et à mesure que le bracket se remplit."""
@@ -445,5 +474,6 @@ if __name__ == "__main__":
     test_flux_complet()
     test_arbitres_brassage()
     test_finales_paralleles()
+    test_repartition_par_taille()
     test_arbitres_elimination()
     print("Tout est vert.")

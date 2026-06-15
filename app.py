@@ -16,9 +16,10 @@ from engine import (
     Phase, ReglesScore, bye_du_tour, classement_suisse, classements_tour,
     creer_tournoi, dumps, elimination_creee, enregistrer_set_sec,
     generer_elimination, generer_poules_finales, generer_tour_brassage_suivant,
-    lancer_tour_brassage, loads, maj_regles, nb_tours_recommande, podium,
-    poules_finales_creees, poules_finales_terminees, suisse_termine,
-    tour_brassage_termine, tour_suisse_termine, tours_suisse,
+    lancer_tour_brassage, loads, maj_regles, nb_poules_pour_taille,
+    nb_tours_recommande, podium, poules_finales_creees, poules_finales_terminees,
+    suisse_termine, tailles_poules, tour_brassage_termine, tour_suisse_termine,
+    tours_suisse,
 )
 from engine.ranking import classement_poule
 from printview import feuille_html
@@ -111,6 +112,17 @@ def ecran_creation():
              "proche, sans rejouer le même adversaire.")
     systeme = "suisse" if systeme_label == "Système suisse" else "poules"
 
+    # Mode de répartition des poules (hors du formulaire pour adapter les champs).
+    mode_repartition = "poules"
+    if systeme == "poules":
+        mode_label = st.radio(
+            "Répartition des poules de brassage",
+            ["Par nombre de poules", "Par nombre d'équipes par poule"],
+            horizontal=True,
+            help="Choisis comment définir les poules. Si le total n'est pas un "
+                 "multiple, les poules restent équilibrées (tailles à 1 près).")
+        mode_repartition = "taille" if mode_label.endswith("par poule") else "poules"
+
     with st.form("creation"):
         col1, col2 = st.columns(2)
         with col1:
@@ -118,14 +130,27 @@ def ecran_creation():
             nb_equipes = st.number_input("Nombre d'équipes", 2, 64, 8, step=1)
             nb_terrains = st.number_input("Terrains (matchs en parallèle)", 1, 16, 3, step=1)
             if systeme == "poules":
-                nb_poules = st.number_input("Poules par tour de brassage", 1, 16, 2, step=1)
+                if mode_repartition == "taille":
+                    equipes_par_poule = st.number_input(
+                        "Équipes par poule", 2, 32, 4, step=1,
+                        help="Le nombre de poules est déduit automatiquement et "
+                             "équilibré, même si le total n'est pas un multiple.")
+                    nb_poules = nb_poules_pour_taille(int(nb_equipes),
+                                                      int(equipes_par_poule))
+                    tailles = tailles_poules(int(nb_equipes), nb_poules)
+                    st.caption(f"➡️ {nb_poules} poule(s) : "
+                               f"{', '.join(str(x) for x in tailles)} équipes")
+                else:
+                    equipes_par_poule = 0
+                    nb_poules = st.number_input(
+                        "Poules par tour de brassage", 1, 16, 2, step=1)
                 nb_tours = st.number_input(
                     "Tours de brassage", 1, 6, 1, step=1,
                     help="Après chaque tour, les équipes sont re-réparties dans de "
                          "nouvelles poules selon le classement (poules de niveau).")
                 suisse_illimite, suisse_tours = True, 1
             else:
-                nb_poules, nb_tours = 1, 1
+                nb_poules, nb_tours, equipes_par_poule = 1, 1, 0
                 suisse_illimite = st.checkbox(
                     "Nombre de tours illimité", value=True,
                     help="Coché : on enchaîne les tours jusqu'à ce qu'une seule "
@@ -167,6 +192,10 @@ def ecran_creation():
         noms = [n for n in noms_brut.splitlines() if n.strip()]
         if not noms:
             noms = [f"Équipe {i}" for i in range(1, int(nb_equipes) + 1)]
+        # Si on répartit par taille de poule, on déduit le nb de poules à partir
+        # du nombre RÉEL d'équipes (les noms saisis priment sur "Nombre d'équipes").
+        if systeme == "poules" and mode_repartition == "taille":
+            nb_poules = nb_poules_pour_taille(len(noms), int(equipes_par_poule))
         points_par_phase = {
             "brassage": int(pts_brassage),
             "principale": int(pts_finales),
