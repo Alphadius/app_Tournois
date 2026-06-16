@@ -170,6 +170,11 @@ se met à jour automatiquement. Quand tous les matchs d'un tour sont remplis, le
   déjà rencontré** (avec un nombre impair d'équipes, l'une est exemptée à tour de rôle et
   marque une victoire).
 
+> ℹ️ Dès que tu génères une nouvelle phase (tour suivant, finales, élimination), l'outil
+> **bascule automatiquement** sur cette phase et **remonte en haut de la page** — tu te
+> retrouves directement devant le planning qui va se jouer, sans avoir à chercher l'onglet.
+> Tu peux toujours revenir sur une phase précédente avec le **sélecteur de phases** en haut.
+
 ### c. Les finales : poule principale / consolante
 
 Après la phase de classement, clique sur **générer les finales**. Le classement général est
