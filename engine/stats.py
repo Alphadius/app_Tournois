@@ -81,14 +81,30 @@ def statistiques(t: Tournoi) -> dict:
     for eid in getattr(t, "suisse_byes", []):
         byes[eid] = byes.get(eid, 0) + 1
 
+    # Groupe final de chaque équipe (principale / consolante) d'après les poules
+    # finales. Sert à classer la principale AVANT la consolante : il n'est pas
+    # logique qu'une équipe de consolante devance une équipe de principale.
+    groupe_par_equipe: dict[int, str] = {}
+    for p in t.poules:
+        if p.phase == Phase.PRINCIPALE:
+            for e in p.equipes:
+                groupe_par_equipe[e.id] = "Principale"
+        elif p.phase == Phase.CONSOLANTE:
+            for e in p.equipes:
+                groupe_par_equipe[e.id] = "Consolante"
+    rang_groupe = {"Principale": 0, "Consolante": 1}
+
     equipes = []
     for s in stats.values():
         d = dict(s)
         d["diff"] = s["points_pour"] - s["points_contre"]
         d["byes"] = byes.get(s["equipe"].id, 0)
+        d["groupe"] = groupe_par_equipe.get(s["equipe"].id)
         equipes.append(d)
-    equipes.sort(key=lambda d: (d["victoires"], d["diff"], d["points_pour"]),
-                 reverse=True)
+    # Tri : groupe (principale avant consolante avant non-classé), puis victoires,
+    # différence de points, points marqués (tous décroissants).
+    equipes.sort(key=lambda d: (rang_groupe.get(d["groupe"], 2),
+                                -d["victoires"], -d["diff"], -d["points_pour"]))
 
     # --- faits marquants ---
     faits: dict = {}

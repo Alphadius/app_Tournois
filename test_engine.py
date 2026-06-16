@@ -507,6 +507,61 @@ def test_statistiques():
           f"{s['nb_equipes']} équipes  OK")
 
 
+def test_stats_classement_par_groupe():
+    """Le classement du bilan place TOUTE la principale avant la consolante, même
+    si une équipe de consolante a plus de victoires qu'une de principale."""
+    from engine import statistiques
+    noms = ["A", "B", "C", "D", "E", "F", "G", "H"]
+    t = creer_tournoi("Grp", noms, nb_poules=2, nb_terrains=2)
+    lancer_tour_brassage(t, 1)
+    jouer_matchs(t, t.matchs_tour(1))
+    generer_poules_finales(t)
+    jouer_matchs(t, t.matchs_de(Phase.PRINCIPALE) + t.matchs_de(Phase.CONSOLANTE))
+
+    s = statistiques(t)
+    ids_principale = {e.id for p in t.poules_de(Phase.PRINCIPALE) for e in p.equipes}
+    ids_consolante = {e.id for p in t.poules_de(Phase.CONSOLANTE) for e in p.equipes}
+    classement = [d["equipe"].id for d in s["equipes"]]
+    # Le dernier de principale est devant le premier de consolante.
+    derniere_princ = max(i for i, eid in enumerate(classement) if eid in ids_principale)
+    premier_conso = min(i for i, eid in enumerate(classement) if eid in ids_consolante)
+    assert derniere_princ < premier_conso, \
+        "une équipe de consolante devance une équipe de principale"
+    # Le champ groupe est renseigné et cohérent.
+    for d in s["equipes"]:
+        attendu = "Principale" if d["equipe"].id in ids_principale else "Consolante"
+        assert d["groupe"] == attendu, f"groupe incorrect pour {d['equipe'].nom}"
+    print("  [stats] principale classée avant consolante  OK")
+
+
+def test_feuilles_de_match_html():
+    """Génération des feuilles de match : recueil (phase complète) + feuille seule."""
+    from printview import feuille_match_html, feuilles_matchs_html
+    noms = [f"E{i}" for i in range(1, 9)]
+    t = creer_tournoi("Feuilles", noms, nb_poules=2, nb_terrains=2)
+    lancer_tour_brassage(t, 1)
+    matchs = t.matchs_tour(1)
+
+    # Recueil : une feuille par match prêt, regroupées 2 par page.
+    html = feuilles_matchs_html(t.nom, matchs, regles=t.regles)
+    prets = [m for m in matchs if m.pret]
+    assert html.count("class='sheet'") == len(prets), "nb de feuilles incorrect"
+    # 2 feuilles par page -> ceil(n/2) pages.
+    nb_pages = (len(prets) + 1) // 2
+    assert html.count("class='page'") == nb_pages, "découpage en pages incorrect"
+    assert "Score final" in html and "Vainqueur" in html
+    assert "🎯 15 points" in html  # cible de brassage
+    # Les noms des équipes du 1er match apparaissent.
+    m0 = prets[0]
+    assert m0.equipe_a.nom in html and m0.equipe_b.nom in html
+
+    # Feuille individuelle (ex. un match d'élimination généré au fil de l'eau).
+    une = feuille_match_html(t.nom, m0, regles=t.regles)
+    assert une.count("class='sheet'") == 1
+    assert "Imprimer cette feuille" in une
+    print(f"  [feuilles] {len(prets)} feuilles (2/page) + feuille individuelle  OK")
+
+
 def test_arbitres_fallback_et_auto():
     """Secours croisé : si aucune équipe du vivier prioritaire n'est libre, on
     prend une équipe du vivier de secours ; si vraiment personne n'est libre, le
@@ -632,4 +687,6 @@ if __name__ == "__main__":
     test_finales_multi_poules()
     test_elim_taille_tableau_limite()
     test_statistiques()
+    test_stats_classement_par_groupe()
+    test_feuilles_de_match_html()
     print("Tout est vert.")

@@ -131,6 +131,119 @@ def _match_libelle(m) -> str:
             f"<small>({escape(m.poule)})</small>")
 
 
+_CSS_MATCH = """
+@page { margin: 1.1cm; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+       color: #111; margin: 0; padding: 16px; }
+.btn { margin-bottom: 14px; padding: 8px 14px; font-size: 14px; cursor: pointer;
+       border: 1px solid #333; border-radius: 6px; background: #fff; }
+.page { page-break-after: always; }
+.page:last-child { page-break-after: auto; }
+.sheet { border: 2px solid #222; border-radius: 10px; padding: 14px 18px;
+         margin: 8px 0; min-height: 12.3cm; display: flex; flex-direction: column;
+         page-break-inside: avoid; }
+.sheet .ent { display: flex; justify-content: space-between; align-items: flex-start;
+              border-bottom: 2px solid #222; padding-bottom: 7px; margin-bottom: 6px; }
+.sheet .ent h2 { font-size: 19px; margin: 0; }
+.sheet .ent .sub2 { color: #555; font-size: 12px; margin-top: 2px; }
+.sheet .meta { text-align: right; font-size: 13px; color: #333; line-height: 1.5; }
+.sheet .meta .terrain { font-size: 20px; font-weight: 800; color: #111; }
+.equipe { font-size: 16px; font-weight: 700; margin: 9px 0 1px; }
+.grille { line-height: 0; }
+.case { display: inline-block; width: 23px; height: 23px; line-height: 23px;
+        text-align: center; border: 1px solid #999; margin: 2px; font-size: 11px;
+        color: #555; }
+.final { margin-top: auto; border-top: 2px dashed #999; padding-top: 12px;
+         font-size: 17px; }
+.box { display: inline-block; width: 66px; height: 42px; border: 2px solid #222;
+       border-radius: 4px; vertical-align: middle; margin: 0 8px; }
+.tiret { font-weight: 700; color: #666; }
+.vainqueur { margin-top: 12px; font-size: 14px; color: #333; }
+.ligne { display: inline-block; width: 55%; border-bottom: 1.5px solid #555; }
+@media print { .btn { display: none; } body { padding: 0; } }
+"""
+
+
+def _arbitre_txt(m) -> str:
+    arbitre = getattr(m, "arbitre", None)
+    if arbitre is not None:
+        return _nom(arbitre)
+    if getattr(m, "arbitre_auto", False):
+        return "Auto-géré"
+    return "—"
+
+
+def _sheet_match(tournoi_nom: str, m, regles=None) -> str:
+    """Bloc HTML d'une feuille de match (équipes, arbitre, terrain, grille de
+    score à cocher et zone de score final)."""
+    cible = 25
+    if regles is not None:
+        try:
+            cible = regles.points_cible(m.phase)
+        except Exception:
+            cible = getattr(regles, "points_pour_gagner", 25)
+    n = cible + 5  # quelques cases de marge au-delà de la cible
+    terrain = f"Terrain {m.terrain}" if m.terrain else "—"
+    vague = f"Vague {m.vague}" if getattr(m, "vague", None) else ""
+    label = getattr(m, "label_tour", None) or escape(m.poule)
+    sep = " · " if vague else ""
+    cases = "".join(f"<span class='case'>{i}</span>" for i in range(1, n + 1))
+    return (
+        "<div class='sheet'>"
+        "<div class='ent'>"
+        f"<div><h2>{escape(str(label))}</h2>"
+        f"<div class='sub2'>{escape(tournoi_nom)}{sep}{vague}</div></div>"
+        f"<div class='meta'><div class='terrain'>{terrain}</div>"
+        f"<div>🎯 {cible} points</div>"
+        f"<div>Arbitre : {_arbitre_txt(m)}</div></div>"
+        "</div>"
+        f"<div class='equipe'>A · {_nom(m.equipe_a)}</div>"
+        f"<div class='grille'>{cases}</div>"
+        f"<div class='equipe'>B · {_nom(m.equipe_b)}</div>"
+        f"<div class='grille'>{cases}</div>"
+        "<div class='final'>Score final : "
+        f"<b>{_nom(m.equipe_a)}</b> <span class='box'></span>"
+        " <span class='tiret'>—</span> "
+        f"<span class='box'></span> <b>{_nom(m.equipe_b)}</b>"
+        "<div class='vainqueur'>Vainqueur : <span class='ligne'></span></div>"
+        "</div></div>"
+    )
+
+
+def _doc_match(tournoi_nom: str, titre: str, corps: str, bouton: str) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<title>{escape(tournoi_nom)} — {escape(titre)}</title>
+<style>{_CSS_MATCH}</style></head>
+<body>
+<button class="btn" onclick="window.print()">🖨️ {escape(bouton)}</button>
+{corps}
+</body></html>"""
+
+
+def feuille_match_html(tournoi_nom: str, m, regles=None) -> str:
+    """Feuille d'un seul match (pour les phases générées au fil de l'eau)."""
+    return _doc_match(tournoi_nom, "Feuille de match",
+                      _sheet_match(tournoi_nom, m, regles),
+                      "Imprimer cette feuille")
+
+
+def feuilles_matchs_html(tournoi_nom: str, matchs: list, regles=None) -> str:
+    """Recueil de feuilles de match (2 par page) pour une phase générée d'un coup."""
+    prets = [m for m in matchs
+             if m.equipe_a is not None and m.equipe_b is not None]
+    prets.sort(key=lambda x: (x.vague or 0, x.terrain or 0))
+    pages = ""
+    for i in range(0, len(prets), 2):
+        paire = prets[i:i + 2]
+        pages += ("<div class='page'>"
+                  + "".join(_sheet_match(tournoi_nom, m, regles) for m in paire)
+                  + "</div>")
+    return _doc_match(tournoi_nom, "Feuilles de match", pages,
+                      "Imprimer toutes les feuilles")
+
+
 def feuille_stats_html(stats: dict) -> str:
     """Feuille HTML récapitulative des statistiques du tournoi."""
     nom = escape(stats["nom"])
@@ -205,19 +318,24 @@ def feuille_stats_html(stats: dict) -> str:
 
     # --- classement complet des équipes ---
     afficher_byes = any(d["byes"] for d in stats["equipes"])
+    afficher_groupe = any(d.get("groupe") for d in stats["equipes"])
     th_byes = "<th>Byes</th>" if afficher_byes else ""
+    th_groupe = "<th>Groupe</th>" if afficher_groupe else ""
     lignes_eq = ""
     for i, d in enumerate(stats["equipes"]):
         col_byes = f"<td>{d['byes']}</td>" if afficher_byes else ""
+        col_groupe = (f"<td>{escape(d.get('groupe') or '—')}</td>"
+                      if afficher_groupe else "")
         lignes_eq += (
-            f"<tr><td>{i + 1}</td><td>{escape(d['equipe'].nom)}</td>"
+            f"<tr><td>{i + 1}</td><td>{escape(d['equipe'].nom)}</td>{col_groupe}"
             f"<td>{d['joues']}</td><td>{d['victoires']}</td><td>{d['defaites']}</td>"
             f"<td>{d['points_pour']}</td><td>{d['points_contre']}</td>"
             f"<td><b>{d['diff']:+d}</b></td><td>{d['arbitrages']}</td>{col_byes}</tr>"
         )
     bloc_equipes = (
         "<h2>Classement des équipes</h2>"
-        "<table><thead><tr><th>#</th><th>Équipe</th><th>J</th><th>V</th><th>D</th>"
+        "<table><thead><tr><th>#</th><th>Équipe</th>" + th_groupe +
+        "<th>J</th><th>V</th><th>D</th>"
         "<th>Pts+</th><th>Pts−</th><th>Diff</th><th>Arb.</th>" + th_byes +
         f"</tr></thead><tbody>{lignes_eq}</tbody></table>"
     )

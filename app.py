@@ -23,7 +23,9 @@ from engine import (
     tour_suisse_termine, tours_suisse,
 )
 from engine.ranking import classement_poule
-from printview import feuille_html, feuille_stats_html
+from printview import (
+    feuille_html, feuille_match_html, feuille_stats_html, feuilles_matchs_html,
+)
 
 st.set_page_config(page_title="Tournoi Volley", page_icon="🏐", layout="wide")
 
@@ -343,8 +345,12 @@ def _points_cible(regles, phase) -> int:
     return ppp.get(cle, getattr(regles, "points_pour_gagner", 25))
 
 
-def carte_match(t, m, contexte: str):
-    """Affiche un match avec saisie de score (set sec)."""
+def carte_match(t, m, contexte: str, feuille_individuelle: bool = False):
+    """Affiche un match avec saisie de score (set sec).
+
+    `feuille_individuelle=True` ajoute un bouton d'impression de la feuille de ce
+    match (utile pour les phases générées au fil de l'eau, ex. l'élimination).
+    """
     if not m.pret:
         st.markdown(f"⏸️ *{_nom(m.equipe_a)}* vs *{_nom(m.equipe_b)}*")
         st.caption("En attente du tour précédent")
@@ -359,6 +365,13 @@ def carte_match(t, m, contexte: str):
         st.caption(f"🟨 Arbitre : {arbitre.nom}")
     elif getattr(m, "arbitre_auto", False):
         st.caption("🟨 Arbitrage : auto-géré (aucune équipe disponible)")
+    if feuille_individuelle and not m.joue:
+        st.download_button(
+            "📝 Feuille de match", data=feuille_match_html(t.nom, m, regles=t.regles),
+            file_name=f"feuille_match_{m.id}.html", mime="text/html",
+            key=f"feuillematch_{contexte}_{m.id}", use_container_width=True,
+            help="Feuille à imprimer : équipes, arbitre, terrain, grille de "
+                 "score à cocher et score final.")
     c1, c2 = st.columns(2)
     pa = c1.number_input(_nom(m.equipe_a), 0, 99,
                          value=m.points_a if m.points_a is not None else 0,
@@ -388,6 +401,20 @@ def bouton_impression(t, titre: str, matchs, classements, cle: str):
         key=f"print_{cle}",
         help="Télécharge une feuille à ouvrir puis imprimer (Cmd/Ctrl+P), "
              "ou enregistrer en PDF.")
+
+
+def bouton_feuilles_match(t, matchs, cle: str):
+    """Bouton de téléchargement des feuilles de match d'une phase (2 par page)."""
+    prets = [m for m in matchs if m.pret]
+    if not prets:
+        return
+    html = feuilles_matchs_html(t.nom, prets, regles=t.regles)
+    st.download_button(
+        "📝 Feuilles de match (.html)", data=html,
+        file_name=f"feuilles_match_{cle}.html", mime="text/html",
+        key=f"feuilles_{cle}",
+        help="Une feuille par match (2 par page) : équipes, arbitre, terrain, "
+             "grille de score à cocher et score final.")
 
 
 def bouton_stats(t, cle: str):
@@ -460,7 +487,8 @@ def afficher_bracket(t, groupe: str):
         with col:
             for m in sorted(par_tour[te], key=_ordre_label):
                 st.markdown(f"**{m.label_tour or f'Tour {te}'}**")
-                carte_match(t, m, contexte=f"elim_{groupe}")
+                carte_match(t, m, contexte=f"elim_{groupe}",
+                            feuille_individuelle=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -471,6 +499,7 @@ def onglet_brassage(t, tour: int):
     afficher_classements(classements, f"Classements — Brassage {tour}")
     bouton_impression(t, f"Brassage {tour}", t.matchs_tour(tour), classements,
                       cle=f"brass_{tour}")
+    bouton_feuilles_match(t, t.matchs_tour(tour), cle=f"brass_{tour}")
     afficher_planning(t, t.matchs_tour(tour), "Planning des matchs", f"brass_{tour}")
 
     if not tour_brassage_termine(t, tour):
@@ -509,6 +538,7 @@ def onglet_suisse(t, tour: int):
     matchs = t.matchs_tour(tour)
     bouton_impression(t, f"Suisse Tour {tour}", matchs,
                       {"Classement général": cl}, cle=f"suisse_{tour}")
+    bouton_feuilles_match(t, matchs, cle=f"suisse_{tour}")
     afficher_planning(t, matchs, "Planning des matchs", f"suisse_{tour}")
 
     if not tour_suisse_termine(t, tour):
@@ -548,6 +578,7 @@ def onglet_finales(t):
     afficher_classements(classements, "Classements des poules finales")
     matchs = t.matchs_de(Phase.PRINCIPALE) + t.matchs_de(Phase.CONSOLANTE)
     bouton_impression(t, "Poules finales", matchs, classements, cle="finales")
+    bouton_feuilles_match(t, matchs, cle="finales")
     afficher_planning(t, matchs, "Planning — Finales", "finales")
 
     if not poules_finales_terminees(t):

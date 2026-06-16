@@ -234,12 +234,22 @@ Les classements se recalculent automatiquement à partir des scores déjà saisi
   `.json` à l'endroit de ton choix — pratique pour garder une copie ou la transférer.
 - **Reprendre une sauvegarde** : utilise **📂 charger** pour ré-ouvrir un `.json` enregistré.
 
-### g. Impression du planning
+### g. Impression du planning et des feuilles de match
 
-Dans chaque onglet, le bouton d'impression génère une **feuille HTML** (planning des matchs
-avec terrain, **arbitre** et points cible, + classements). Ouvre le fichier puis fais
+Dans chaque onglet, le bouton **🖨️ Planning imprimable** génère une **feuille HTML** (planning
+des matchs avec terrain, **arbitre** et points cible, + classements). Ouvre le fichier puis fais
 `Cmd + P` (macOS) ou `Ctrl + P` (Windows) pour imprimer ou enregistrer en PDF — pratique
 pour afficher le planning à côté des terrains.
+
+Le bouton **📝 Feuilles de match** produit, lui, **une feuille par rencontre** à distribuer
+sur chaque terrain. Chaque feuille indique les **deux équipes**, l'**arbitre**, le **terrain**,
+les **points cible**, une **grille de cases à cocher** pour pointer le score au fur et à mesure,
+et une **zone de score final** (+ vainqueur). 
+- Pour les phases dont tous les matchs sont connus d'avance (brassage, tour suisse, poules
+  finales), le bouton télécharge **toutes les feuilles d'un coup, à raison de 2 par page**.
+- Pour la phase éliminatoire, où les matchs se débloquent au fur et à mesure, un bouton
+  **📝 Feuille de match** apparaît **sous chaque rencontre dès qu'elle est jouable** (les deux
+  équipes connues) pour imprimer cette feuille-là.
 
 ### h. Le bilan du tournoi (statistiques)
 
@@ -252,7 +262,10 @@ pour afficher le planning à côté des terrains.
   prolifique, meilleure attaque, meilleure défense, équipe qui a le plus arbitré ;
 - un **bilan par phase** (matchs et points) ;
 - le **classement complet des équipes** (joués, victoires, défaites, points marqués /
-  encaissés, différence, nombre de matchs arbitrés).
+  encaissés, différence, nombre de matchs arbitrés). Ce classement **respecte les groupes
+  finals** : toutes les équipes de la **principale** sont classées avant celles de la
+  **consolante** (une équipe de consolante ne peut pas devancer une équipe de principale),
+  une colonne **Groupe** le rappelle.
 
 Comme pour le planning, ouvre le fichier puis `Cmd/Ctrl + P` pour l'imprimer ou le garder en PDF.
 
