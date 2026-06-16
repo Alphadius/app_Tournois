@@ -11,6 +11,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from engine import (
     Phase, ReglesScore, bye_du_tour, classement_suisse, classements_tour,
@@ -557,6 +558,36 @@ def onglet_elimination(t):
     bouton_stats(t, "elimination")
 
 
+def _remonter_en_haut() -> None:
+    """Fait défiler la page tout en haut (après une bascule de phase).
+
+    Streamlit n'a pas de scroll-to-top natif : on injecte un court script dans
+    un iframe `components.html` qui remet à zéro le défilement du conteneur
+    principal. Le nonce incrémental garantit que l'iframe est rechargé (donc le
+    script ré-exécuté) à chaque appel, même si le contenu est par ailleurs
+    identique.
+    """
+    n = st.session_state.get("_scroll_nonce", 0) + 1
+    st.session_state["_scroll_nonce"] = n
+    # On répète le scroll avec de courts délais : pendant un rerun, Streamlit
+    # restaure la position de défilement APRÈS le chargement de cet iframe, donc
+    # un seul appel serait écrasé. Les rappels échelonnés passent après.
+    components.html(
+        f"""
+        <script>
+          /* {n} */
+          const go = () => {{
+            const el = window.parent.document.querySelector('[data-testid="stMain"]');
+            if (el) el.scrollTo({{top: 0, behavior: 'auto'}});
+          }};
+          go();
+          [50, 150, 300, 600].forEach(d => setTimeout(go, d));
+        </script>
+        """,
+        height=0,
+    )
+
+
 def ecran_tournoi(t):
     sidebar_reglages(t)
     est_suisse = getattr(t, "systeme", "poules") == "suisse"
@@ -595,6 +626,7 @@ def ecran_tournoi(t):
     cible = st.session_state.pop("aller_phase", None)
     if cible in labels:
         st.session_state[nav_key] = cible
+        _remonter_en_haut()  # nouvelle phase générée -> on remonte en haut
     if st.session_state.get(nav_key) not in labels:
         st.session_state[nav_key] = labels[-1]
 
