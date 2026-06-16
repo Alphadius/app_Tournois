@@ -189,10 +189,20 @@ def ecran_creation():
                      "1 = une seule grande poule par groupe (tous les affrontements). "
                      "Plus de poules = moins de matchs par équipe.")
         with colf2:
-            qualifies_elim = st.number_input(
-                "Qualifiés / poule → tableau", 1, 8, 2, step=1, key="qualifies_elim",
-                help="Quand il y a plusieurs poules par groupe : combien d'équipes "
-                     "de chaque poule rejoignent le tableau à élimination directe.")
+            tours_elim = {
+                "8e de finale (16 équipes)": 16,
+                "Quart de finale (8 équipes)": 8,
+                "Demi-finale (4 équipes)": 4,
+                "Finale (2 équipes)": 2,
+            }
+            tour_elim_label = st.selectbox(
+                "Départ du tableau à élimination directe", list(tours_elim),
+                index=1, key="tour_elim_depart",
+                help="Tour où commence l'élimination directe de chaque groupe. Le "
+                     "nombre de qualifiés en découle (16 / 8 / 4 / 2), répartis "
+                     "équitablement entre les poules. S'il n'y a pas assez d'équipes "
+                     "dans le groupe, on démarre automatiquement à un tour plus avancé.")
+            elim_taille = tours_elim[tour_elim_label]
 
         st.markdown("**Noms des équipes** (un par ligne, vide = noms automatiques)")
         noms_brut = st.text_area("Équipes", height=140, label_visibility="collapsed",
@@ -224,7 +234,7 @@ def ecran_creation():
                 nb_terrains=int(nb_terrains), nb_tours_brassage=int(nb_tours),
                 regles=regles, qualifies_principale_par_poule=int(qualifies),
                 nb_poules_finales=int(nb_poules_finales),
-                qualifies_elim_par_poule=int(qualifies_elim),
+                elim_taille_tableau=int(elim_taille),
                 systeme=systeme, suisse_nb_tours=suisse_nb_tours)
             lancer_tour_brassage(t, 1)
             st.session_state["tournoi"] = t

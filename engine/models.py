@@ -154,9 +154,11 @@ class Tournoi:
     # nb de poules par phase finale (principale ET consolante). 1 = comportement
     # historique (une seule grande poule par groupe, round-robin complet).
     nb_poules_finales: int = 1
-    # quand nb_poules_finales > 1 : combien d'équipes de chaque poule finale se
-    # qualifient pour le tableau à élimination directe de leur groupe.
-    qualifies_elim_par_poule: int = 2
+    # tour de départ du tableau à élimination directe de chaque groupe, exprimé en
+    # nombre d'équipes qualifiées : 16 = 8e de finale, 8 = quart, 4 = demi, 2 = finale.
+    # Les qualifiés sont répartis équitablement entre les poules du groupe. Si le
+    # groupe compte moins d'équipes, on démarre automatiquement à un tour plus avancé.
+    elim_taille_tableau: int = 8
     # phase de classement : "poules" (brassage en poules) ou "suisse" (système suisse)
     systeme: str = "poules"
     # système suisse : 0 = nb de tours illimité (jusqu'à une seule équipe invaincue),

@@ -34,7 +34,7 @@ def to_dict(t: Tournoi) -> dict:
         "nb_tours_brassage": getattr(t, "nb_tours_brassage", 1),
         "qualifies_principale_par_poule": getattr(t, "qualifies_principale_par_poule", 1),
         "nb_poules_finales": getattr(t, "nb_poules_finales", 1),
-        "qualifies_elim_par_poule": getattr(t, "qualifies_elim_par_poule", 2),
+        "elim_taille_tableau": getattr(t, "elim_taille_tableau", 8),
         "systeme": getattr(t, "systeme", "poules"),
         "suisse_nb_tours": getattr(t, "suisse_nb_tours", 0),
         "suisse_byes": list(getattr(t, "suisse_byes", [])),
@@ -72,7 +72,7 @@ def from_dict(d: dict) -> Tournoi:
         nb_tours_brassage=d.get("nb_tours_brassage", 1),
         qualifies_principale_par_poule=d.get("qualifies_principale_par_poule", 1),
         nb_poules_finales=d.get("nb_poules_finales", 1),
-        qualifies_elim_par_poule=d.get("qualifies_elim_par_poule", 2),
+        elim_taille_tableau=d.get("elim_taille_tableau", 8),
         systeme=d.get("systeme", "poules"),
         suisse_nb_tours=d.get("suisse_nb_tours", 0),
     )

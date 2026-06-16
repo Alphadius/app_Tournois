@@ -541,11 +541,12 @@ def test_arbitres_fallback_et_auto():
 
 def test_finales_multi_poules():
     """Avec nb_poules_finales > 1, chaque groupe final est découpé en plusieurs
-    poules de niveau, et seuls les q meilleurs de chaque poule rejoignent un unique
-    tableau à élimination directe par groupe."""
+    poules de niveau ; le tableau à élimination directe démarre au tour choisi, les
+    qualifiés étant pris équitablement dans chaque poule (et bornés à l'effectif)."""
     noms = [f"E{i}" for i in range(1, 17)]  # 16 équipes
+    # 8 équipes par groupe, 2 poules de 4 ; départ demandé en 8e (16) -> borné à 8.
     t = creer_tournoi("Multi", noms, nb_poules=2, nb_terrains=4,
-                      nb_poules_finales=2, qualifies_elim_par_poule=2)
+                      nb_poules_finales=2, elim_taille_tableau=16)
     lancer_tour_brassage(t, 1)
     jouer_matchs(t, t.matchs_tour(1))
     generer_poules_finales(t)
@@ -562,22 +563,51 @@ def test_finales_multi_poules():
     assert poules_finales_terminees(t)
 
     generer_elimination(t)
-    # Un seul tableau par groupe : 2 poules x 2 qualifiés = 4 équipes -> 2 demies +
-    # finale + petite finale, soit 4 matchs par groupe.
+    # 8e demandé mais seulement 8 équipes/groupe -> démarrage auto en quart (8) :
+    # 4 quarts + 2 demies + finale + petite finale = 8 matchs par groupe, et les 8
+    # équipes du groupe entrent (4 de chaque poule).
     brk_p = [m for m in t.matchs_de(Phase.ELIMINATION) if m.groupe == "Principale"]
     brk_c = [m for m in t.matchs_de(Phase.ELIMINATION) if m.groupe == "Consolante"]
-    assert len(brk_p) == 4 and len(brk_c) == 4, \
+    assert len(brk_p) == 8 and len(brk_c) == 8, \
         f"bracket principale {len(brk_p)} matchs, consolante {len(brk_c)}"
+    equipes_brk_p = {e.id for m in brk_p if m.tour_elim == 1
+                     for e in (m.equipe_a, m.equipe_b) if e is not None}
+    assert len(equipes_brk_p) == 8, f"{len(equipes_brk_p)} équipes en principale"
 
     # Roundtrip JSON : les nouveaux réglages survivent à la sauvegarde.
     t2 = loads(dumps(t))
-    assert t2.nb_poules_finales == 2 and t2.qualifies_elim_par_poule == 2
+    assert t2.nb_poules_finales == 2 and t2.elim_taille_tableau == 16
 
     jouer_bracket(t)
     assert elimination_terminee(t)
     champions = vainqueurs_finals(t)
     assert "Principale" in champions and "Consolante" in champions
-    print("  [multi-poules] 2 poules/groupe -> 1 tableau de 4 par groupe  OK")
+    print("  [multi-poules] 2 poules/groupe + départ borné à l'effectif (8e->quart)  OK")
+
+
+def test_elim_taille_tableau_limite():
+    """Le tour de départ limite le nombre de qualifiés : avec 8 équipes par groupe
+    et un départ en demi-finale (4), seules les 4 meilleures entrent (2 par poule)."""
+    noms = [f"E{i}" for i in range(1, 17)]  # 16 équipes -> 8 par groupe
+    t = creer_tournoi("Lim", noms, nb_poules=2, nb_terrains=4,
+                      nb_poules_finales=2, elim_taille_tableau=4)
+    lancer_tour_brassage(t, 1)
+    jouer_matchs(t, t.matchs_tour(1))
+    generer_poules_finales(t)
+    jouer_matchs(t, t.matchs_de(Phase.PRINCIPALE) + t.matchs_de(Phase.CONSOLANTE))
+    generer_elimination(t)
+
+    brk_p = [m for m in t.matchs_de(Phase.ELIMINATION) if m.groupe == "Principale"]
+    # 4 équipes -> 2 demies + finale + petite finale = 4 matchs.
+    assert len(brk_p) == 4, f"bracket principale {len(brk_p)} matchs"
+    equipes = {e.id for m in brk_p if m.tour_elim == 1
+               for e in (m.equipe_a, m.equipe_b) if e is not None}
+    assert len(equipes) == 4, f"{len(equipes)} équipes qualifiées (4 attendues)"
+    # 2 par poule : chaque poule principale fournit exactement 2 qualifiés.
+    for p in t.poules_de(Phase.PRINCIPALE):
+        ids_poule = {e.id for e in p.equipes}
+        assert len(equipes & ids_poule) == 2, "répartition inégale entre poules"
+    print("  [élim] départ en demi-finale -> 4 qualifiés (2 par poule)  OK")
 
 
 if __name__ == "__main__":
@@ -600,5 +630,6 @@ if __name__ == "__main__":
     test_arbitres_elimination()
     test_arbitres_fallback_et_auto()
     test_finales_multi_poules()
+    test_elim_taille_tableau_limite()
     test_statistiques()
     print("Tout est vert.")

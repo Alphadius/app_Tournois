@@ -155,8 +155,11 @@ Dans tous les cas (brassage **ou** suisse), tu règles aussi la **phase finale**
   consolante. `1` (par défaut) = une seule grande poule par groupe (tout le monde s'affronte,
   mais ça peut être long). Plus de poules = moins de matchs par équipe ; les équipes sont
   réparties en **poules de niveau** d'après le classement de fin de phase de classement ;
-- **Qualifiés / poule → tableau** : quand il y a plusieurs poules par groupe, combien
-  d'équipes de chaque poule rejoignent le **tableau à élimination directe** du groupe.
+- **Départ du tableau à élimination directe** : à quel tour commence l'élimination de chaque
+  groupe — **8e de finale** (16 équipes), **quart** (8), **demi** (4) ou **finale** (2). Le
+  nombre de qualifiés en découle directement et ils sont pris **équitablement dans chaque
+  poule** (ex. 2 poules + départ en quart → les 4 premiers de chaque poule). S'il n'y a pas
+  assez d'équipes dans le groupe, l'outil **démarre automatiquement à un tour plus avancé**.
 
 Clique **🏐 Créer le tournoi**. Un bouton **↩️ Reprendre le dernier tournoi** est aussi
 proposé si une sauvegarde automatique existe.
@@ -203,15 +206,14 @@ auto-géré**.
 ### d. La phase éliminatoire
 
 À la fin des finales, l'outil génère **un tableau à élimination directe par groupe**
-(principale, consolante). S'il y avait **une seule poule** par groupe, tout le monde entre dans
-le tableau ; s'il y avait **plusieurs poules**, seuls les **meilleurs de chaque poule** (selon
-le réglage *Qualifiés / poule → tableau*) se rejoignent dans **un unique tableau** par groupe,
-classés par tête de série (tous les 1ers de poule d'abord, puis les 2es, etc.). Le placement
-est fait pour que **le 1er et le 2e ne puissent se rencontrer qu'en finale**. Chaque tableau
-comporte une **petite finale** (match pour la 3e place), et les arbitres viennent **en
-priorité** de la **même compétition** (à défaut, une équipe de l'autre compétition dépanne ;
-si aucune n'est libre, l'arbitrage est **auto-géré**). À la fin, le **podium** s'affiche
-avec 🥇🥈🥉.
+(principale, consolante). Le tableau démarre au **tour choisi à la création** (8e, quart, demi
+ou finale) : on retient les **meilleurs du groupe** (répartis équitablement entre les poules —
+tous les 1ers d'abord, puis les 2es, etc.). S'il n'y a pas assez d'équipes, le tableau démarre
+**automatiquement à un tour plus avancé**. Le placement (têtes de série) est fait pour que
+**le 1er et le 2e ne puissent se rencontrer qu'en finale**. Chaque tableau comporte une
+**petite finale** (match pour la 3e place), et les arbitres viennent **en priorité** de la
+**même compétition** (à défaut, une équipe de l'autre compétition dépanne ; si aucune n'est
+libre, l'arbitrage est **auto-géré**). À la fin, le **podium** s'affiche avec 🥇🥈🥉.
 
 ### e. Les réglages (barre latérale ⚙️)
 

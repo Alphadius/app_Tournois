@@ -107,24 +107,26 @@ def _creer_poules_groupe(t: Tournoi, equipes: list[Equipe], phase: Phase,
             nom=f"{base_nom} {_ALPHABET[idx]}", phase=phase, equipes=paquet))
 
 
-def _qualifies_multi_poules(t: Tournoi, poules: list[Poule], q: int) -> list[Equipe]:
-    """Rassemble les q meilleurs de chaque poule en une seule liste de têtes de série.
+def _qualifies_pour_tableau(t: Tournoi, poules: list[Poule], cible: int) -> list[Equipe]:
+    """Sélectionne au plus `cible` équipes pour le tableau à élimination directe,
+    réparties équitablement entre les poules du groupe.
 
-    Le classement est « par rang » : tous les 1ers de poule d'abord (du meilleur au
-    moins bon), puis tous les 2es, etc. Au sein d'un même rang, on départage par
-    points de classement puis par différence de points marqués. On obtient ainsi un
-    seeding global propre pour le tableau à élimination directe du groupe.
+    On procède « par rang » : tous les 1ers de poule d'abord (du meilleur au moins
+    bon), puis tous les 2es, etc., jusqu'à atteindre `cible`. Au sein d'un même rang,
+    on départage par points de classement puis par différence de points marqués. Avec
+    2 poules et une cible de 8, on prend ainsi les 4 premiers de chaque poule ; avec
+    une seule poule, on prend simplement les `cible` premiers du classement.
     """
-    par_rang: dict[int, list] = {}
-    for p in poules:
-        cl = classement_poule(p, t.matchs, t.regles)
-        for rang, ligne in enumerate(cl[:q]):
-            par_rang.setdefault(rang, []).append(ligne)
+    classements = [classement_poule(p, t.matchs, t.regles) for p in poules]
+    max_rang = max((len(c) for c in classements), default=0)
     ordre: list[Equipe] = []
-    for rang in sorted(par_rang):
-        groupe = sorted(par_rang[rang],
-                        key=lambda l: (l.points, l.ratio_points), reverse=True)
-        ordre.extend(l.equipe for l in groupe)
+    for rang in range(max_rang):
+        rangees = [c[rang] for c in classements if rang < len(c)]
+        rangees.sort(key=lambda l: (l.points, l.ratio_points), reverse=True)
+        for ligne in rangees:
+            ordre.append(ligne.equipe)
+            if len(ordre) >= cible:
+                return ordre
     return ordre
 
 
@@ -140,7 +142,7 @@ def creer_tournoi(
     regles: ReglesScore | None = None,
     qualifies_principale_par_poule: int = 1,
     nb_poules_finales: int = 1,
-    qualifies_elim_par_poule: int = 2,
+    elim_taille_tableau: int = 8,
     systeme: str = "poules",
     suisse_nb_tours: int = 0,
 ) -> Tournoi:
@@ -157,8 +159,8 @@ def creer_tournoi(
         raise ValueError("Nombre de tours suisse invalide.")
     if nb_poules_finales < 1:
         raise ValueError("Nombre de poules finales invalide.")
-    if qualifies_elim_par_poule < 1:
-        raise ValueError("Nombre de qualifiés par poule finale invalide.")
+    if elim_taille_tableau < 2:
+        raise ValueError("Taille du tableau d'élimination invalide.")
 
     t = Tournoi(
         nom=nom,
@@ -169,7 +171,7 @@ def creer_tournoi(
         nb_tours_brassage=nb_tours_brassage,
         qualifies_principale_par_poule=qualifies_principale_par_poule,
         nb_poules_finales=nb_poules_finales,
-        qualifies_elim_par_poule=qualifies_elim_par_poule,
+        elim_taille_tableau=elim_taille_tableau,
         systeme=systeme,
         suisse_nb_tours=suisse_nb_tours,
     )
@@ -316,18 +318,18 @@ def generer_elimination(t: Tournoi) -> None:
     if not poules_finales_terminees(t):
         raise ValueError("Les poules finales ne sont pas terminées.")
 
-    q = max(1, getattr(t, "qualifies_elim_par_poule", 2))
+    # Cible = tour de départ choisi (16 = 8e, 8 = quart, 4 = demi...), bornée au
+    # nombre d'équipes réellement présentes dans le groupe : s'il y en a moins, on
+    # démarre automatiquement à un tour plus avancé.
+    cible_max = max(2, getattr(t, "elim_taille_tableau", 8))
     matchs: list = []
     for phase, nom in ((Phase.PRINCIPALE, "Principale"), (Phase.CONSOLANTE, "Consolante")):
         poules = t.poules_de(phase)
         if not poules:
             continue
-        if len(poules) == 1:
-            # Une seule poule : tout le monde entre dans le tableau (historique).
-            classees = [l.equipe for l in classement_poule(poules[0], t.matchs, t.regles)]
-        else:
-            # Plusieurs poules : les q meilleurs de chaque poule se qualifient.
-            classees = _qualifies_multi_poules(t, poules, q)
+        total = sum(len(p.equipes) for p in poules)
+        cible = min(cible_max, total)
+        classees = _qualifies_pour_tableau(t, poules, cible)
         matchs += generer_bracket(t, nom, classees)
 
     ordonnancer_elimination(matchs, t.nb_terrains)
