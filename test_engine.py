@@ -539,6 +539,47 @@ def test_arbitres_fallback_et_auto():
     print("  [arbitres] secours croisé + auto-gestion  OK")
 
 
+def test_finales_multi_poules():
+    """Avec nb_poules_finales > 1, chaque groupe final est découpé en plusieurs
+    poules de niveau, et seuls les q meilleurs de chaque poule rejoignent un unique
+    tableau à élimination directe par groupe."""
+    noms = [f"E{i}" for i in range(1, 17)]  # 16 équipes
+    t = creer_tournoi("Multi", noms, nb_poules=2, nb_terrains=4,
+                      nb_poules_finales=2, qualifies_elim_par_poule=2)
+    lancer_tour_brassage(t, 1)
+    jouer_matchs(t, t.matchs_tour(1))
+    generer_poules_finales(t)
+
+    poules_p = t.poules_de(Phase.PRINCIPALE)
+    poules_c = t.poules_de(Phase.CONSOLANTE)
+    # 8 équipes par groupe découpées en 2 poules -> "Principale A/B", "Consolante A/B".
+    assert len(poules_p) == 2 and len(poules_c) == 2, \
+        f"{len(poules_p)} poules principale, {len(poules_c)} consolante"
+    assert {p.nom for p in poules_p} == {"Principale A", "Principale B"}
+    assert {p.nom for p in poules_c} == {"Consolante A", "Consolante B"}
+
+    jouer_matchs(t, t.matchs_de(Phase.PRINCIPALE) + t.matchs_de(Phase.CONSOLANTE))
+    assert poules_finales_terminees(t)
+
+    generer_elimination(t)
+    # Un seul tableau par groupe : 2 poules x 2 qualifiés = 4 équipes -> 2 demies +
+    # finale + petite finale, soit 4 matchs par groupe.
+    brk_p = [m for m in t.matchs_de(Phase.ELIMINATION) if m.groupe == "Principale"]
+    brk_c = [m for m in t.matchs_de(Phase.ELIMINATION) if m.groupe == "Consolante"]
+    assert len(brk_p) == 4 and len(brk_c) == 4, \
+        f"bracket principale {len(brk_p)} matchs, consolante {len(brk_c)}"
+
+    # Roundtrip JSON : les nouveaux réglages survivent à la sauvegarde.
+    t2 = loads(dumps(t))
+    assert t2.nb_poules_finales == 2 and t2.qualifies_elim_par_poule == 2
+
+    jouer_bracket(t)
+    assert elimination_terminee(t)
+    champions = vainqueurs_finals(t)
+    assert "Principale" in champions and "Consolante" in champions
+    print("  [multi-poules] 2 poules/groupe -> 1 tableau de 4 par groupe  OK")
+
+
 if __name__ == "__main__":
     print("Tests moteur :")
     test_scheduler_parallele()
@@ -558,5 +599,6 @@ if __name__ == "__main__":
     test_repartition_par_taille()
     test_arbitres_elimination()
     test_arbitres_fallback_et_auto()
+    test_finales_multi_poules()
     test_statistiques()
     print("Tout est vert.")

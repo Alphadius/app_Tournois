@@ -88,6 +88,46 @@ def _creer_poules_brassage(t: Tournoi, paquets: list[list[Equipe]], tour: int) -
             phase=Phase.BRASSAGE, equipes=paquet, tour=tour))
 
 
+def _creer_poules_groupe(t: Tournoi, equipes: list[Equipe], phase: Phase,
+                         base_nom: str, nb_poules: int) -> None:
+    """Crée les poules d'un groupe final (principale / consolante).
+
+    Avec une seule poule, on garde le nom historique (`base_nom`, ex "Principale")
+    pour la rétro-compatibilité. Avec plusieurs poules, on répartit les équipes en
+    serpentin sur le classement (poules de niveau équilibrées) et on les nomme
+    "Principale A", "Principale B"… Le nombre de poules est borné pour garantir au
+    moins 2 équipes par poule.
+    """
+    nb = max(1, min(nb_poules, max(1, len(equipes) // 2)))
+    if nb <= 1:
+        t.poules.append(Poule(nom=base_nom, phase=phase, equipes=equipes))
+        return
+    for idx, paquet in enumerate(repartir_serpentin(equipes, nb)):
+        t.poules.append(Poule(
+            nom=f"{base_nom} {_ALPHABET[idx]}", phase=phase, equipes=paquet))
+
+
+def _qualifies_multi_poules(t: Tournoi, poules: list[Poule], q: int) -> list[Equipe]:
+    """Rassemble les q meilleurs de chaque poule en une seule liste de têtes de série.
+
+    Le classement est « par rang » : tous les 1ers de poule d'abord (du meilleur au
+    moins bon), puis tous les 2es, etc. Au sein d'un même rang, on départage par
+    points de classement puis par différence de points marqués. On obtient ainsi un
+    seeding global propre pour le tableau à élimination directe du groupe.
+    """
+    par_rang: dict[int, list] = {}
+    for p in poules:
+        cl = classement_poule(p, t.matchs, t.regles)
+        for rang, ligne in enumerate(cl[:q]):
+            par_rang.setdefault(rang, []).append(ligne)
+    ordre: list[Equipe] = []
+    for rang in sorted(par_rang):
+        groupe = sorted(par_rang[rang],
+                        key=lambda l: (l.points, l.ratio_points), reverse=True)
+        ordre.extend(l.equipe for l in groupe)
+    return ordre
+
+
 # --------------------------------------------------------------------------- #
 #  Création
 # --------------------------------------------------------------------------- #
@@ -99,6 +139,8 @@ def creer_tournoi(
     nb_tours_brassage: int = 1,
     regles: ReglesScore | None = None,
     qualifies_principale_par_poule: int = 1,
+    nb_poules_finales: int = 1,
+    qualifies_elim_par_poule: int = 2,
     systeme: str = "poules",
     suisse_nb_tours: int = 0,
 ) -> Tournoi:
@@ -113,6 +155,10 @@ def creer_tournoi(
         raise ValueError("Il faut au moins 1 tour de brassage.")
     if systeme == "suisse" and suisse_nb_tours < 0:
         raise ValueError("Nombre de tours suisse invalide.")
+    if nb_poules_finales < 1:
+        raise ValueError("Nombre de poules finales invalide.")
+    if qualifies_elim_par_poule < 1:
+        raise ValueError("Nombre de qualifiés par poule finale invalide.")
 
     t = Tournoi(
         nom=nom,
@@ -122,6 +168,8 @@ def creer_tournoi(
         nb_poules=nb_poules,
         nb_tours_brassage=nb_tours_brassage,
         qualifies_principale_par_poule=qualifies_principale_par_poule,
+        nb_poules_finales=nb_poules_finales,
+        qualifies_elim_par_poule=qualifies_elim_par_poule,
         systeme=systeme,
         suisse_nb_tours=suisse_nb_tours,
     )
@@ -225,10 +273,11 @@ def generer_poules_finales(t: Tournoi) -> None:
     principale = classees[:moitie]
     consolante = classees[moitie:]
 
+    nb_pf = max(1, getattr(t, "nb_poules_finales", 1))
     if principale:
-        t.poules.append(Poule(nom="Principale", phase=Phase.PRINCIPALE, equipes=principale))
+        _creer_poules_groupe(t, principale, Phase.PRINCIPALE, "Principale", nb_pf)
     if consolante:
-        t.poules.append(Poule(nom="Consolante", phase=Phase.CONSOLANTE, equipes=consolante))
+        _creer_poules_groupe(t, consolante, Phase.CONSOLANTE, "Consolante", nb_pf)
 
     matchs_p = generer_matchs_phase(t, Phase.PRINCIPALE)
     matchs_c = generer_matchs_phase(t, Phase.CONSOLANTE)
@@ -267,12 +316,18 @@ def generer_elimination(t: Tournoi) -> None:
     if not poules_finales_terminees(t):
         raise ValueError("Les poules finales ne sont pas terminées.")
 
+    q = max(1, getattr(t, "qualifies_elim_par_poule", 2))
     matchs: list = []
     for phase, nom in ((Phase.PRINCIPALE, "Principale"), (Phase.CONSOLANTE, "Consolante")):
         poules = t.poules_de(phase)
         if not poules:
             continue
-        classees = [l.equipe for l in classement_poule(poules[0], t.matchs, t.regles)]
+        if len(poules) == 1:
+            # Une seule poule : tout le monde entre dans le tableau (historique).
+            classees = [l.equipe for l in classement_poule(poules[0], t.matchs, t.regles)]
+        else:
+            # Plusieurs poules : les q meilleurs de chaque poule se qualifient.
+            classees = _qualifies_multi_poules(t, poules, q)
         matchs += generer_bracket(t, nom, classees)
 
     ordonnancer_elimination(matchs, t.nb_terrains)

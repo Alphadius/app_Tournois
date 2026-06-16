@@ -150,6 +150,14 @@ En **poules de brassage**, tu définis en plus :
 En **système suisse**, tu choisis le **nombre de tours** : *illimité* (on enchaîne jusqu'à
 ce qu'une seule équipe reste invaincue) ou *fixé* (utile quand le temps est compté).
 
+Dans tous les cas (brassage **ou** suisse), tu règles aussi la **phase finale** :
+- **Poules par groupe final** : combien de poules pour la principale **et** pour la
+  consolante. `1` (par défaut) = une seule grande poule par groupe (tout le monde s'affronte,
+  mais ça peut être long). Plus de poules = moins de matchs par équipe ; les équipes sont
+  réparties en **poules de niveau** d'après le classement de fin de phase de classement ;
+- **Qualifiés / poule → tableau** : quand il y a plusieurs poules par groupe, combien
+  d'équipes de chaque poule rejoignent le **tableau à élimination directe** du groupe.
+
 Clique **🏐 Créer le tournoi**. Un bouton **↩️ Reprendre le dernier tournoi** est aussi
 proposé si une sauvegarde automatique existe.
 
@@ -178,22 +186,32 @@ se met à jour automatiquement. Quand tous les matchs d'un tour sont remplis, le
 ### c. Les finales : poule principale / consolante
 
 Après la phase de classement, clique sur **générer les finales**. Le classement général est
-**coupé en deux** : la **moitié haute** va en **poule principale**, la **moitié basse** en
-**poule consolante**. Les deux poules rejouent un mini-championnat et se déroulent **en
-parallèle sur des terrains dédiés** (par ex. avec 4 terrains : 2 pour la principale, 2 pour
-la consolante ; avec un nombre impair, le terrain en plus alterne entre les deux). Chaque
-match est arbitré **en priorité** par une équipe **de la même compétition** ; si aucune n'est
-libre à ce moment-là, une équipe de l'autre compétition prend le relais, et si vraiment
-personne n'est disponible le match est indiqué en **arbitrage auto-géré**.
+**coupé en deux** : la **moitié haute** va en **principale**, la **moitié basse** en
+**consolante**. Selon le réglage **Poules par groupe final** (choisi à la création) :
+- avec **1 poule par groupe** : chaque groupe est un seul mini-championnat (« Principale »,
+  « Consolante »), tout le monde s'affronte ;
+- avec **plusieurs poules par groupe** : chaque groupe est re-divisé en **poules de niveau**
+  équilibrées (« Principale A », « Principale B »…), ce qui réduit le nombre de matchs.
+
+Les deux compétitions se déroulent **en parallèle sur des terrains dédiés** (par ex. avec 4
+terrains : 2 pour la principale, 2 pour la consolante ; avec un nombre impair, le terrain en
+plus alterne entre les deux). Chaque match est arbitré **en priorité** par une équipe **de la
+même compétition** ; si aucune n'est libre à ce moment-là, une équipe de l'autre compétition
+prend le relais, et si vraiment personne n'est disponible le match est indiqué en **arbitrage
+auto-géré**.
 
 ### d. La phase éliminatoire
 
-À la fin des finales, l'outil génère un **tableau à élimination directe pour chaque poule**.
-Le placement (têtes de série) est fait pour que **le 1er et le 2e d'une poule ne puissent se
-rencontrer qu'en finale**. Chaque tableau comporte une **petite finale** (match pour la 3e
-place), et les arbitres viennent **en priorité** de la **même compétition** (à défaut, une
-équipe de l'autre compétition dépanne ; si aucune n'est libre, l'arbitrage est **auto-géré**).
-À la fin, le **podium** s'affiche avec 🥇🥈🥉.
+À la fin des finales, l'outil génère **un tableau à élimination directe par groupe**
+(principale, consolante). S'il y avait **une seule poule** par groupe, tout le monde entre dans
+le tableau ; s'il y avait **plusieurs poules**, seuls les **meilleurs de chaque poule** (selon
+le réglage *Qualifiés / poule → tableau*) se rejoignent dans **un unique tableau** par groupe,
+classés par tête de série (tous les 1ers de poule d'abord, puis les 2es, etc.). Le placement
+est fait pour que **le 1er et le 2e ne puissent se rencontrer qu'en finale**. Chaque tableau
+comporte une **petite finale** (match pour la 3e place), et les arbitres viennent **en
+priorité** de la **même compétition** (à défaut, une équipe de l'autre compétition dépanne ;
+si aucune n'est libre, l'arbitrage est **auto-géré**). À la fin, le **podium** s'affiche
+avec 🥇🥈🥉.
 
 ### e. Les réglages (barre latérale ⚙️)
 

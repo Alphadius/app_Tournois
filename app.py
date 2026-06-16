@@ -180,6 +180,20 @@ def ecran_creation():
             aller_retour = (st.checkbox("Aller-retour (matchs en double)", value=False)
                             if systeme == "poules" else False)
 
+        st.markdown("**Phase finale (poule principale & consolante)**")
+        colf1, colf2 = st.columns(2)
+        with colf1:
+            nb_poules_finales = st.number_input(
+                "Poules par groupe final", 1, 8, 1, step=1, key="nb_poules_finales",
+                help="Nombre de poules pour la principale ET pour la consolante. "
+                     "1 = une seule grande poule par groupe (tous les affrontements). "
+                     "Plus de poules = moins de matchs par équipe.")
+        with colf2:
+            qualifies_elim = st.number_input(
+                "Qualifiés / poule → tableau", 1, 8, 2, step=1, key="qualifies_elim",
+                help="Quand il y a plusieurs poules par groupe : combien d'équipes "
+                     "de chaque poule rejoignent le tableau à élimination directe.")
+
         st.markdown("**Noms des équipes** (un par ligne, vide = noms automatiques)")
         noms_brut = st.text_area("Équipes", height=140, label_visibility="collapsed",
                                  placeholder="Les Aigles\nLes Tigres\n...")
@@ -209,6 +223,8 @@ def ecran_creation():
                 nom=nom, noms_equipes=noms, nb_poules=int(nb_poules),
                 nb_terrains=int(nb_terrains), nb_tours_brassage=int(nb_tours),
                 regles=regles, qualifies_principale_par_poule=int(qualifies),
+                nb_poules_finales=int(nb_poules_finales),
+                qualifies_elim_par_poule=int(qualifies_elim),
                 systeme=systeme, suisse_nb_tours=suisse_nb_tours)
             lancer_tour_brassage(t, 1)
             st.session_state["tournoi"] = t

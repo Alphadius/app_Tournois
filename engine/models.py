@@ -151,6 +151,12 @@ class Tournoi:
     nb_tours_brassage: int = 1     # nb de tours de brassage
     # combien d'équipes de chaque poule de classement montent en principale
     qualifies_principale_par_poule: int = 1
+    # nb de poules par phase finale (principale ET consolante). 1 = comportement
+    # historique (une seule grande poule par groupe, round-robin complet).
+    nb_poules_finales: int = 1
+    # quand nb_poules_finales > 1 : combien d'équipes de chaque poule finale se
+    # qualifient pour le tableau à élimination directe de leur groupe.
+    qualifies_elim_par_poule: int = 2
     # phase de classement : "poules" (brassage en poules) ou "suisse" (système suisse)
     systeme: str = "poules"
     # système suisse : 0 = nb de tours illimité (jusqu'à une seule équipe invaincue),
