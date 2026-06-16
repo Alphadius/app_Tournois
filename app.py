@@ -457,6 +457,7 @@ def onglet_brassage(t, tour: int):
             if st.button(f"➡️ Lancer le brassage {tour + 1} (re-répartition)",
                          type="primary", key=f"next_{tour}"):
                 generer_tour_brassage_suivant(t, tour)
+                st.session_state["aller_phase"] = f"Brassage {tour + 1}"
                 st.rerun()
         else:
             st.caption(f"Brassage {tour + 1} déjà lancé (onglet suivant).")
@@ -465,6 +466,7 @@ def onglet_brassage(t, tour: int):
             if st.button("🏁 Générer poule principale & consolante",
                          type="primary", key="gen_finales"):
                 generer_poules_finales(t)
+                st.session_state["aller_phase"] = "Finales"
                 st.rerun()
         else:
             st.caption("Poules finales déjà créées (onglet Finales).")
@@ -499,6 +501,7 @@ def onglet_suisse(t, tour: int):
             if st.button("🏁 Générer poule principale & consolante",
                          type="primary", key="gen_finales_suisse"):
                 generer_poules_finales(t)
+                st.session_state["aller_phase"] = "Finales"
                 st.rerun()
         else:
             st.caption("Poules finales déjà créées (onglet Finales).")
@@ -506,6 +509,7 @@ def onglet_suisse(t, tour: int):
         if st.button(f"➡️ Générer le tour {tour + 1} (appariement par niveau)",
                      type="primary", key=f"next_suisse_{tour}"):
             generer_tour_brassage_suivant(t, tour)
+            st.session_state["aller_phase"] = f"Tour {tour + 1}"
             st.rerun()
 
 
@@ -528,6 +532,7 @@ def onglet_finales(t):
     if not elimination_creee(t):
         if st.button("🥇 Générer la phase éliminatoire", type="primary"):
             generer_elimination(t)
+            st.session_state["aller_phase"] = "Élimination"
             st.rerun()
 
 
@@ -582,23 +587,34 @@ def ecran_tournoi(t):
     if elimination_creee(t):
         labels.append("Élimination")
 
-    onglets = st.tabs(labels)
-    idx = 0
-    for n in tours:
-        with onglets[idx]:
-            if est_suisse:
-                onglet_suisse(t, n)
-            else:
-                onglet_brassage(t, n)
-        idx += 1
-    if poules_finales_creees(t):
-        with onglets[idx]:
-            onglet_finales(t)
-        idx += 1
-    if elimination_creee(t):
-        with onglets[idx]:
-            onglet_elimination(t)
-        idx += 1
+    # Navigation par phase via un sélecteur piloté (et non st.tabs), afin de
+    # pouvoir basculer AUTOMATIQUEMENT vers une phase qui vient d'être créée :
+    # un bouton "lancer le tour suivant" / "générer les finales" pose
+    # `aller_phase`, qu'on applique ici avant d'afficher la phase.
+    nav_key = "phase_active"
+    cible = st.session_state.pop("aller_phase", None)
+    if cible in labels:
+        st.session_state[nav_key] = cible
+    if st.session_state.get(nav_key) not in labels:
+        st.session_state[nav_key] = labels[-1]
+
+    choix = st.segmented_control(
+        "Phase", labels, key=nav_key, label_visibility="collapsed",
+    )
+    if choix not in labels:
+        choix = st.session_state[nav_key]
+
+    if choix == "Finales":
+        onglet_finales(t)
+    elif choix == "Élimination":
+        onglet_elimination(t)
+    else:
+        # Les labels des tours sont en tête de `labels`, dans l'ordre de `tours`.
+        n = tours[labels.index(choix)]
+        if est_suisse:
+            onglet_suisse(t, n)
+        else:
+            onglet_brassage(t, n)
 
     # Sauvegarde automatique de l'état courant à chaque interaction.
     autosave(t)
