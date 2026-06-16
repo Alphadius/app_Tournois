@@ -181,6 +181,65 @@ def _placer_vague(matchs: list[Match], budget: int, vague: int,
     return restants
 
 
+def _ordonnancer_bloc(matchs: list[Match], terrain_debut: int,
+                      nb_terrains_bloc: int, vague_depart: int) -> int:
+    """Ordonnance des matchs sur un bloc de terrains réservé
+    (`terrain_debut`..`terrain_debut+nb_terrains_bloc-1`), en équilibrant le repos.
+    Retourne la prochaine vague libre.
+    """
+    if nb_terrains_bloc < 1:
+        raise ValueError("Bloc de terrains vide.")
+    a_placer = list(matchs)
+    vague = vague_depart
+    base = vague_depart - 1
+    derniere_vague: dict[int, int] = {}
+    while a_placer:
+        a_placer = _placer_vague(a_placer, nb_terrains_bloc, vague,
+                                 terrain_debut, derniere_vague, base)
+        vague += 1
+    return vague
+
+
+def ordonnancer_poules_paralleles(groupes: list[list[Match]], nb_terrains: int,
+                                  vague_depart: int = 1) -> int:
+    """Ordonnance plusieurs poules EN PARALLÈLE, chacune sur son/ses terrain(s).
+
+    `groupes` : une liste de matchs par poule. Chaque poule joue son round-robin
+    sur un bloc de terrains qui lui est réservé, donc les poules avancent
+    simultanément (4 poules + 4 terrains = chaque poule sur un terrain, aucune
+    n'attend que les autres aient fini).
+
+    Répartition des terrains :
+      - s'il y a au plus autant de poules que de terrains, chaque poule reçoit au
+        moins un terrain et les terrains en surplus accélèrent les premières
+        poules (qui font alors jouer 2 matchs de front) ;
+      - s'il y a plus de poules que de terrains, les poules sont traitées par
+        lots successifs (un lot démarre quand le précédent est terminé).
+
+    Retourne la prochaine vague libre.
+    """
+    if nb_terrains < 1:
+        raise ValueError("Il faut au moins 1 terrain.")
+    groupes = [list(g) for g in groupes if g]
+    if not groupes:
+        return vague_depart
+
+    vague_globale = vague_depart
+    for debut in range(0, len(groupes), nb_terrains):
+        lot = groupes[debut:debut + nb_terrains]
+        n = len(lot)
+        base = nb_terrains // n
+        extra = nb_terrains % n
+        terrain = 1
+        fins = []
+        for i, matchs in enumerate(lot):
+            nb = base + (1 if i < extra else 0)
+            fins.append(_ordonnancer_bloc(matchs, terrain, nb, vague_globale))
+            terrain += nb
+        vague_globale = max(fins)
+    return vague_globale
+
+
 def ordonnancer_parallele(matchs_p: list[Match], matchs_c: list[Match],
                           nb_terrains: int, vague_depart: int = 1) -> int:
     """Ordonnance deux compétitions EN PARALLÈLE sur des terrains dédiés.

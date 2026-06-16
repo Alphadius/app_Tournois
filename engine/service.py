@@ -14,8 +14,8 @@ from .models import Equipe, Phase, Poule, ReglesScore, Tournoi, creer_equipes
 from .ranking import LigneClassement, classement_poule
 from .scheduler import (
     assigner_arbitres, assigner_arbitres_elimination, generer_matchs_phase,
-    generer_matchs_poules, ordonnancer, ordonnancer_elimination,
-    ordonnancer_parallele,
+    generer_matchs_poule, generer_matchs_poules, ordonnancer,
+    ordonnancer_elimination, ordonnancer_poules_paralleles,
 )
 
 _ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -256,6 +256,18 @@ def brassage_termine(t: Tournoi) -> bool:
 # --------------------------------------------------------------------------- #
 #  Poules finales (principale / consolante)
 # --------------------------------------------------------------------------- #
+def _entrelacer(a: list, b: list) -> list:
+    """Entrelace deux listes (a[0], b[0], a[1], b[1], ...) pour répartir les
+    poules des deux compétitions de façon alternée sur les terrains."""
+    res = []
+    for i in range(max(len(a), len(b))):
+        if i < len(a):
+            res.append(a[i])
+        if i < len(b):
+            res.append(b[i])
+    return res
+
+
 def generer_poules_finales(t: Tournoi) -> None:
     """À partir de la phase de classement, crée principale + consolante."""
     if any(p.phase in (Phase.PRINCIPALE, Phase.CONSOLANTE) for p in t.poules):
@@ -281,10 +293,17 @@ def generer_poules_finales(t: Tournoi) -> None:
     if consolante:
         _creer_poules_groupe(t, consolante, Phase.CONSOLANTE, "Consolante", nb_pf)
 
-    matchs_p = generer_matchs_phase(t, Phase.PRINCIPALE)
-    matchs_c = generer_matchs_phase(t, Phase.CONSOLANTE)
-    # Les deux compétitions se jouent en parallèle sur des terrains dédiés.
-    ordonnancer_parallele(matchs_p, matchs_c, t.nb_terrains)
+    # Une liste de matchs PAR POULE : chaque poule (principale ou consolante)
+    # jouera sur son propre terrain, en parallèle des autres, pour éviter qu'une
+    # même poule enchaîne tous ses matchs pendant que les autres attendent.
+    groupes_p = [generer_matchs_poule(t, p) for p in t.poules_de(Phase.PRINCIPALE)]
+    groupes_c = [generer_matchs_poule(t, p) for p in t.poules_de(Phase.CONSOLANTE)]
+    matchs_p = [m for g in groupes_p for m in g]
+    matchs_c = [m for g in groupes_c for m in g]
+    # On entrelace principale et consolante pour que les deux compétitions
+    # avancent ensemble même quand il y a moins de terrains que de poules.
+    groupes = _entrelacer(groupes_p, groupes_c)
+    ordonnancer_poules_paralleles(groupes, t.nb_terrains)
     t.matchs.extend(matchs_p)
     t.matchs.extend(matchs_c)
     # Arbitres : chaque compétition s'auto-arbitre en priorité ; si aucune équipe

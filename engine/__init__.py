@@ -11,7 +11,7 @@ from .suisse import (
 from .scheduler import (
     assigner_arbitres, assigner_arbitres_elimination, generer_matchs_phase,
     generer_matchs_poule, generer_matchs_poules, ordonnancer,
-    ordonnancer_elimination, ordonnancer_parallele,
+    ordonnancer_elimination, ordonnancer_parallele, ordonnancer_poules_paralleles,
 )
 from .persistence import dumps, from_dict, loads, to_dict
 from .stats import statistiques
@@ -37,6 +37,7 @@ __all__ = [
     "assigner_arbitres", "assigner_arbitres_elimination",
     "generer_matchs_phase", "generer_matchs_poule", "generer_matchs_poules",
     "ordonnancer", "ordonnancer_elimination", "ordonnancer_parallele",
+    "ordonnancer_poules_paralleles",
     # bracket
     "generer_bracket", "ordre_tetes_de_serie", "propager_vainqueur",
     # service

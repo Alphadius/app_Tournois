@@ -196,12 +196,16 @@ Après la phase de classement, clique sur **générer les finales**. Le classeme
 - avec **plusieurs poules par groupe** : chaque groupe est re-divisé en **poules de niveau**
   équilibrées (« Principale A », « Principale B »…), ce qui réduit le nombre de matchs.
 
-Les deux compétitions se déroulent **en parallèle sur des terrains dédiés** (par ex. avec 4
-terrains : 2 pour la principale, 2 pour la consolante ; avec un nombre impair, le terrain en
-plus alterne entre les deux). Chaque match est arbitré **en priorité** par une équipe **de la
-même compétition** ; si aucune n'est libre à ce moment-là, une équipe de l'autre compétition
-prend le relais, et si vraiment personne n'est disponible le match est indiqué en **arbitrage
-auto-géré**.
+Les poules finales se jouent **en parallèle, chaque poule sur son propre terrain** : avec
+par ex. **4 poules et 4 terrains**, chaque poule occupe un terrain dédié et déroule son
+mini-championnat de bout en bout sans attendre les autres (fini les longues attentes où une
+poule enchaîne tous ses matchs pendant que les autres patientent). Quand il y a **plus de
+terrains que de poules**, les terrains en surplus accélèrent les premières poules (2 matchs
+de front) ; quand il y a **plus de poules que de terrains**, les poules sont traitées par
+**lots successifs**. Principale et consolante sont **entrelacées** pour avancer ensemble.
+Chaque match est arbitré **en priorité** par une équipe **de la même compétition** ; si
+aucune n'est libre à ce moment-là, une équipe de l'autre compétition prend le relais, et si
+vraiment personne n'est disponible le match est indiqué en **arbitrage auto-géré**.
 
 ### d. La phase éliminatoire
 

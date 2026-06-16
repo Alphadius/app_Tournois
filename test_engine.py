@@ -640,6 +640,40 @@ def test_finales_multi_poules():
     print("  [multi-poules] 2 poules/groupe + départ borné à l'effectif (8e->quart)  OK")
 
 
+def test_finales_poules_paralleles():
+    """Chaque poule finale joue sur son propre terrain, en parallèle : avec
+    4 poules (2 principale + 2 consolante) et 4 terrains, chaque poule occupe un
+    seul terrain dédié, distinct des autres — fini les enchaînements d'une même
+    poule pendant que les autres attendent."""
+    noms = [f"E{i}" for i in range(1, 17)]  # 16 équipes -> 8 par groupe
+    t = creer_tournoi("Para4", noms, nb_poules=2, nb_terrains=4,
+                      nb_poules_finales=2, elim_taille_tableau=8)
+    lancer_tour_brassage(t, 1)
+    jouer_matchs(t, t.matchs_tour(1))
+    generer_poules_finales(t)
+
+    matchs = t.matchs_de(Phase.PRINCIPALE) + t.matchs_de(Phase.CONSOLANTE)
+    # Une poule = un terrain unique, et les 4 poules occupent 4 terrains distincts.
+    terrains_par_poule = defaultdict(set)
+    for m in matchs:
+        terrains_par_poule[m.poule].add(m.terrain)
+    assert len(terrains_par_poule) == 4, f"{len(terrains_par_poule)} poules finales"
+    for poule, terrains in terrains_par_poule.items():
+        assert len(terrains) == 1, f"poule {poule} étalée sur {terrains}"
+    terrains_utilises = {next(iter(ts)) for ts in terrains_par_poule.values()}
+    assert len(terrains_utilises) == 4, \
+        f"poules pas sur des terrains distincts : {terrains_utilises}"
+
+    # Aucune équipe ne joue deux matchs dans la même vague (contrainte de base).
+    par_vague = defaultdict(set)
+    for m in matchs:
+        for e in (m.equipe_a, m.equipe_b):
+            assert e.id not in par_vague[m.vague], \
+                f"équipe {e.id} deux fois sur la vague {m.vague}"
+            par_vague[m.vague].add(e.id)
+    print("  [parallèle] 4 poules finales sur 4 terrains dédiés en parallèle  OK")
+
+
 def test_elim_taille_tableau_limite():
     """Le tour de départ limite le nombre de qualifiés : avec 8 équipes par groupe
     et un départ en demi-finale (4), seules les 4 meilleures entrent (2 par poule)."""
@@ -685,6 +719,7 @@ if __name__ == "__main__":
     test_arbitres_elimination()
     test_arbitres_fallback_et_auto()
     test_finales_multi_poules()
+    test_finales_poules_paralleles()
     test_elim_taille_tableau_limite()
     test_statistiques()
     test_stats_classement_par_groupe()
