@@ -13,7 +13,7 @@ import streamlit as st
 
 import sync
 from engine import (
-    Phase, classements_phase, classements_tour, loads,
+    Phase, classement_suisse, classements_phase, classements_tour, loads,
 )
 
 st.set_page_config(page_title="Tournoi — suivi en direct",
@@ -80,7 +80,17 @@ def _section_classement(t) -> None:
                 _classement(lignes)
         return
 
-    # Sinon : classements du dernier tour de brassage / suisse.
+    # Système suisse : classement général cumulé (pas de poules de brassage).
+    if getattr(t, "systeme", "poules") == "suisse":
+        lignes = classement_suisse(t)
+        if lignes:
+            st.markdown("#### Classement général")
+            _classement(lignes)
+        else:
+            st.caption("Classement disponible dès les premiers résultats.")
+        return
+
+    # Sinon (système à poules) : classements du dernier tour de brassage.
     tours = sorted({p.tour for p in t.poules if p.phase == Phase.BRASSAGE})
     if not tours:
         st.caption("Classement disponible dès les premiers résultats.")
