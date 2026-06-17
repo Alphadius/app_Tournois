@@ -15,7 +15,8 @@ from .ranking import LigneClassement, classement_poule
 from .scheduler import (
     assigner_arbitres, assigner_arbitres_elimination, generer_matchs_phase,
     generer_matchs_poule, generer_matchs_poules, ordonnancer,
-    ordonnancer_elimination, ordonnancer_poules_paralleles,
+    ordonnancer_elimination, ordonnancer_elimination_parallele,
+    ordonnancer_poules_paralleles,
 )
 
 _ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -342,6 +343,7 @@ def generer_elimination(t: Tournoi) -> None:
     # démarre automatiquement à un tour plus avancé.
     cible_max = max(2, getattr(t, "elim_taille_tableau", 8))
     matchs: list = []
+    groupes: list[list] = []
     for phase, nom in ((Phase.PRINCIPALE, "Principale"), (Phase.CONSOLANTE, "Consolante")):
         poules = t.poules_de(phase)
         if not poules:
@@ -349,9 +351,14 @@ def generer_elimination(t: Tournoi) -> None:
         total = sum(len(p.equipes) for p in poules)
         cible = min(cible_max, total)
         classees = _qualifies_pour_tableau(t, poules, cible)
-        matchs += generer_bracket(t, nom, classees)
+        bracket = generer_bracket(t, nom, classees)
+        matchs += bracket
+        groupes.append(bracket)
 
-    ordonnancer_elimination(matchs, t.nb_terrains)
+    # Principale et consolante avancent EN PARALLÈLE : les terrains sont répartis
+    # entre les deux brackets au lieu de jouer tous les tours de l'un puis ceux
+    # de l'autre.
+    ordonnancer_elimination_parallele(groupes, t.nb_terrains)
     t.matchs.extend(matchs)
     # Arbitres des premiers tours connus (recalculés au fil des propagations).
     assigner_arbitres_elimination(t)

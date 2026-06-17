@@ -71,6 +71,67 @@ def ordonnancer_elimination(matchs: list[Match], nb_terrains: int,
     return vague
 
 
+def _ordonnancer_elimination_bloc(matchs: list[Match], terrain_debut: int,
+                                  nb_terrains_bloc: int,
+                                  vague_depart: int = 1) -> int:
+    """Ordonnance un bracket sur un bloc de terrains réservé
+    (`terrain_debut`..`terrain_debut+nb_terrains_bloc-1`). Comme
+    `ordonnancer_elimination`, chaque tour occupe ses propres vagues (un tour ne
+    commence qu'une fois le précédent fini). Retourne la prochaine vague libre.
+    """
+    if nb_terrains_bloc < 1:
+        raise ValueError("Bloc de terrains vide.")
+    vague = vague_depart
+    tours = sorted({m.tour_elim for m in matchs if m.tour_elim is not None})
+    for te in tours:
+        du_tour = [m for m in matchs if m.tour_elim == te]
+        terrain = terrain_debut
+        fin = terrain_debut + nb_terrains_bloc
+        for m in du_tour:
+            if terrain >= fin:
+                terrain = terrain_debut
+                vague += 1
+            m.vague = vague
+            m.terrain = terrain
+            terrain += 1
+        vague += 1
+    return vague
+
+
+def ordonnancer_elimination_parallele(groupes: list[list[Match]],
+                                      nb_terrains: int,
+                                      vague_depart: int = 1) -> int:
+    """Ordonnance plusieurs brackets EN PARALLÈLE, chacun sur son bloc de terrains.
+
+    `groupes` : une liste de matchs par bracket (ex : principale + consolante).
+    Les terrains sont répartis entre les brackets (comme
+    `ordonnancer_poules_paralleles`) afin que principale et consolante avancent
+    en même temps, au lieu de jouer tous les quarts d'une compétition puis tous
+    ceux de l'autre. Retourne la prochaine vague libre.
+    """
+    if nb_terrains < 1:
+        raise ValueError("Il faut au moins 1 terrain.")
+    groupes = [list(g) for g in groupes if g]
+    if not groupes:
+        return vague_depart
+
+    vague_globale = vague_depart
+    for debut in range(0, len(groupes), nb_terrains):
+        lot = groupes[debut:debut + nb_terrains]
+        n = len(lot)
+        base = nb_terrains // n
+        extra = nb_terrains % n
+        terrain = 1
+        fins = []
+        for i, matchs in enumerate(lot):
+            nb = base + (1 if i < extra else 0)
+            fins.append(_ordonnancer_elimination_bloc(matchs, terrain, nb,
+                                                      vague_globale))
+            terrain += nb
+        vague_globale = max(fins)
+    return vague_globale
+
+
 def ordonnancer(matchs: list[Match], nb_terrains: int, vague_depart: int = 1) -> int:
     """Affecte terrain + vague aux matchs (modifie les objets en place).
 

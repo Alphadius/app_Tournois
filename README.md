@@ -219,6 +219,13 @@ tous les 1ers d'abord, puis les 2es, etc.). S'il n'y a pas assez d'équipes, le 
 **même compétition** (à défaut, une équipe de l'autre compétition dépanne ; si aucune n'est
 libre, l'arbitrage est **auto-géré**). À la fin, le **podium** s'affiche avec 🥇🥈🥉.
 
+Les deux tableaux (principale et consolante) sont ordonnancés **en parallèle** : les terrains
+sont **répartis entre les deux compétitions** (ex. 4 terrains = 2 pour la principale, 2 pour
+la consolante) et leurs premiers tours **démarrent en même temps**. Fini « tous les quarts de
+la principale, puis tous les quarts de la consolante » — les deux brackets avancent ensemble.
+Comme pour les poules, un tour ne commence qu'une fois le précédent terminé (les équipes
+qualifiées doivent être connues).
+
 ### e. Les réglages (barre latérale ⚙️)
 
 Dans le panneau de gauche, tu peux ajuster **en cours de tournoi** :
@@ -276,7 +283,8 @@ Comme pour le planning, ouvre le fichier puis `Cmd/Ctrl + P` pour l'imprimer ou 
 ### i. Diffuser le planning en ligne (page publique en lecture seule)
 
 Tu peux donner aux participants un **lien web** qui montre, en direct, les **matchs en cours**,
-les **prochains matchs** et le **classement** — **sans** qu'ils puissent rien modifier.
+les **prochains matchs**, le **classement** et, en phase finale, les **tableaux d'élimination**
+(principale **et** consolante, avec les scores) — **sans** qu'ils puissent rien modifier.
 
 #### Comment ça marche (le principe)
 

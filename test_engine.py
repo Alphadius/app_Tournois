@@ -699,6 +699,51 @@ def test_elim_taille_tableau_limite():
     print("  [élim] départ en demi-finale -> 4 qualifiés (2 par poule)  OK")
 
 
+def test_elimination_parallele():
+    """Principale et consolante s'ordonnancent EN PARALLÈLE : avec 4 terrains,
+    chaque bracket reçoit 2 terrains dédiés et leurs premiers tours démarrent
+    sur les mêmes vagues — fini « tous les quarts principale puis tous les quarts
+    consolante »."""
+    noms = [f"E{i}" for i in range(1, 17)]  # 16 équipes -> 8 par groupe
+    t = creer_tournoi("ElimPara", noms, nb_poules=2, nb_terrains=4,
+                      nb_poules_finales=2, elim_taille_tableau=8)
+    lancer_tour_brassage(t, 1)
+    jouer_matchs(t, t.matchs_tour(1))
+    generer_poules_finales(t)
+    jouer_matchs(t, t.matchs_de(Phase.PRINCIPALE) + t.matchs_de(Phase.CONSOLANTE))
+    generer_elimination(t)
+
+    elim = t.matchs_de(Phase.ELIMINATION)
+    par_groupe = defaultdict(list)
+    for m in elim:
+        par_groupe[m.groupe].append(m)
+    assert set(par_groupe) == {"Principale", "Consolante"}
+
+    # Chaque bracket occupe un bloc de terrains DÉDIÉ (disjoint de l'autre).
+    terrains = {g: {m.terrain for m in ms} for g, ms in par_groupe.items()}
+    assert terrains["Principale"].isdisjoint(terrains["Consolante"]), \
+        f"terrains partagés : {terrains}"
+
+    # Les premiers tours des deux brackets démarrent sur les MÊMES vagues
+    # (ils avancent ensemble), au lieu d'être tout l'un puis tout l'autre.
+    def vagues_premier_tour(ms):
+        return {m.vague for m in ms if m.tour_elim == 1}
+    vp = vagues_premier_tour(par_groupe["Principale"])
+    vc = vagues_premier_tour(par_groupe["Consolante"])
+    assert vp & vc, f"premiers tours non simultanés : P={vp} C={vc}"
+    assert min(vp) == min(vc), "les deux brackets ne démarrent pas ensemble"
+
+    # Aucune équipe ne joue deux fois dans la même vague.
+    par_vague = defaultdict(set)
+    for m in elim:
+        for e in (m.equipe_a, m.equipe_b):
+            if e is not None:
+                assert e.id not in par_vague[m.vague], \
+                    f"équipe {e.id} deux fois sur la vague {m.vague}"
+                par_vague[m.vague].add(e.id)
+    print("  [élim] principale & consolante ordonnancées en parallèle  OK")
+
+
 if __name__ == "__main__":
     print("Tests moteur :")
     test_scheduler_parallele()
@@ -721,6 +766,7 @@ if __name__ == "__main__":
     test_finales_multi_poules()
     test_finales_poules_paralleles()
     test_elim_taille_tableau_limite()
+    test_elimination_parallele()
     test_statistiques()
     test_stats_classement_par_groupe()
     test_feuilles_de_match_html()

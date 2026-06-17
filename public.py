@@ -64,6 +64,54 @@ def _classement(lignes: list) -> None:
     st.dataframe(data, use_container_width=True, hide_index=True)
 
 
+def _ligne_bracket(m) -> dict:
+    """Une ligne du tableau d'élimination : équipes + score si joué."""
+    a = m.equipe_a.nom if m.equipe_a else "?"
+    b = m.equipe_b.nom if m.equipe_b else "?"
+    if m.joue:
+        score = f"{m.sets_a} – {m.sets_b}"
+        vainqueur = m.vainqueur.nom if m.vainqueur else "—"
+    else:
+        score = "—"
+        vainqueur = ""
+    return {
+        "Tour": m.label_tour or (f"Tour {m.tour_elim}" if m.tour_elim else ""),
+        "Équipe A": a,
+        "Équipe B": b,
+        "Score": score,
+        "Vainqueur": vainqueur,
+    }
+
+
+def _bracket(t, groupe: str) -> None:
+    """Affiche le tableau (bracket) d'une compétition d'élimination directe."""
+    matchs = [m for m in t.matchs
+              if m.phase == Phase.ELIMINATION and m.groupe == groupe]
+    if not matchs:
+        return
+    # Petite finale affichée après la finale dans le même (dernier) tour.
+    matchs = sorted(matchs, key=lambda m: (m.tour_elim or 0,
+                                           1 if m.label_tour == "Petite finale" else 0))
+    lignes = [_ligne_bracket(m) for m in matchs]
+    st.dataframe(lignes, use_container_width=True, hide_index=True)
+
+
+def _section_brackets(t) -> None:
+    """Affiche les tableaux d'élimination (principale + consolante) s'ils existent."""
+    groupes = sorted({m.groupe for m in t.matchs
+                      if m.phase == Phase.ELIMINATION and m.groupe})
+    if not groupes:
+        return
+    st.divider()
+    st.subheader("🥇 Tableaux d'élimination")
+    icones = {"Principale": "🏆", "Consolante": "🥈"}
+    cols = st.columns(len(groupes))
+    for col, groupe in zip(cols, groupes):
+        with col:
+            st.markdown(f"#### {icones.get(groupe, '🏆')} {groupe}")
+            _bracket(t, groupe)
+
+
 def _section_classement(t) -> None:
     """Affiche les classements de la phase la plus avancée disponible."""
     poules_p = classements_phase(t, Phase.PRINCIPALE)
@@ -148,6 +196,8 @@ def vue() -> None:
     st.divider()
     st.subheader("📊 Classement")
     _section_classement(t)
+
+    _section_brackets(t)
 
 
 vue()
