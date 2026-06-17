@@ -744,6 +744,50 @@ def test_elimination_parallele():
     print("  [élim] principale & consolante ordonnancées en parallèle  OK")
 
 
+def test_arbitres_elimination_regles():
+    """Règles d'arbitrage dédiées de l'élimination : les deux finales ne sont pas
+    simultanées, chaque finale est arbitrée par un finaliste de l'AUTRE
+    compétition, et les demi-finales par une équipe éliminée au tour précédent."""
+    noms = [f"E{i}" for i in range(1, 17)]  # 16 équipes -> 8 par groupe
+    t = creer_tournoi("ElimArb", noms, nb_poules=2, nb_terrains=4,
+                      nb_poules_finales=2, elim_taille_tableau=8)
+    lancer_tour_brassage(t, 1)
+    jouer_matchs(t, t.matchs_tour(1))
+    generer_poules_finales(t)
+    jouer_matchs(t, t.matchs_de(Phase.PRINCIPALE) + t.matchs_de(Phase.CONSOLANTE))
+    generer_elimination(t)
+    jouer_bracket(t)
+    assert elimination_terminee(t)
+
+    elim = t.matchs_de(Phase.ELIMINATION)
+    finale = {m.groupe: m for m in elim if m.label_tour == "Finale"}
+    assert set(finale) == {"Principale", "Consolante"}
+
+    # 1) Les deux finales ne sont PAS programmées sur la même vague.
+    assert finale["Principale"].vague != finale["Consolante"].vague, \
+        "les deux finales ont lieu en même temps"
+
+    # 2) Chaque finale est arbitrée par un finaliste de l'autre compétition.
+    finalistes = {g: {m.equipe_a.id, m.equipe_b.id} for g, m in finale.items()}
+    for grp, adverse in (("Principale", "Consolante"), ("Consolante", "Principale")):
+        arb = finale[grp].arbitre
+        assert arb is not None, f"finale {grp} sans arbitre"
+        assert arb.id in finalistes[adverse], \
+            f"finale {grp} pas arbitrée par un finaliste {adverse}"
+
+    # 3) Les demi-finales sont arbitrées par un perdant de quart (éliminé au tour
+    #    précédent) de la même compétition.
+    perdants_quart = defaultdict(set)
+    for m in elim:
+        if m.label_tour == "Quarts de finale" and m.perdant is not None:
+            perdants_quart[m.groupe].add(m.perdant.id)
+    for m in elim:
+        if m.label_tour == "Demi-finales" and m.arbitre is not None:
+            assert m.arbitre.id in perdants_quart[m.groupe], \
+                f"demie {m.groupe} pas arbitrée par un perdant de quart"
+    print("  [élim] finales décalées + arbitrage croisé en finale + éliminés en demie  OK")
+
+
 if __name__ == "__main__":
     print("Tests moteur :")
     test_scheduler_parallele()
@@ -767,6 +811,7 @@ if __name__ == "__main__":
     test_finales_poules_paralleles()
     test_elim_taille_tableau_limite()
     test_elimination_parallele()
+    test_arbitres_elimination_regles()
     test_statistiques()
     test_stats_classement_par_groupe()
     test_feuilles_de_match_html()

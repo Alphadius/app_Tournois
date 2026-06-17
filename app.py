@@ -669,6 +669,18 @@ def onglet_elimination(t):
                 f"{medailles[r]} {classement[r].nom}"
                 for r in (1, 2, 3, 4) if r in classement)
             st.success(f"**{groupe}** — {texte}")
+    # Classement courant des poules finales, en deux tableaux (principale /
+    # consolante) — utile pour suivre les têtes de série pendant le bracket.
+    cl_principale = {p.nom: classement_poule(p, t.matchs, t.regles)
+                     for p in t.poules_de(Phase.PRINCIPALE)}
+    cl_consolante = {p.nom: classement_poule(p, t.matchs, t.regles)
+                     for p in t.poules_de(Phase.CONSOLANTE)}
+    if cl_principale or cl_consolante:
+        st.subheader("📊 Classement courant")
+        afficher_classements(cl_principale, "🏆 Principale")
+        afficher_classements(cl_consolante, "🥈 Consolante")
+        st.divider()
+
     for groupe in ("Principale", "Consolante"):
         if any(m.groupe == groupe for m in t.matchs_de(Phase.ELIMINATION)):
             afficher_bracket(t, groupe)

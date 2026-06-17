@@ -65,7 +65,7 @@ def _classement(lignes: list) -> None:
 
 
 def _ligne_bracket(m) -> dict:
-    """Une ligne du tableau d'élimination : équipes + score si joué."""
+    """Une ligne du tableau d'élimination : équipes + arbitre + score si joué."""
     a = m.equipe_a.nom if m.equipe_a else "?"
     b = m.equipe_b.nom if m.equipe_b else "?"
     if m.joue:
@@ -74,10 +74,12 @@ def _ligne_bracket(m) -> dict:
     else:
         score = "—"
         vainqueur = ""
+    arbitre = "Auto-géré" if m.arbitre_auto else (m.arbitre.nom if m.arbitre else "—")
     return {
         "Tour": m.label_tour or (f"Tour {m.tour_elim}" if m.tour_elim else ""),
         "Équipe A": a,
         "Équipe B": b,
+        "Arbitre": arbitre,
         "Score": score,
         "Vainqueur": vainqueur,
     }

@@ -9,6 +9,7 @@ qu'une équipe enchaîne deux vagues d'affilée.
 """
 from __future__ import annotations
 
+from collections import defaultdict
 from itertools import combinations
 
 from .models import Equipe, Match, Phase, Poule, Tournoi
@@ -107,7 +108,15 @@ def ordonnancer_elimination_parallele(groupes: list[list[Match]],
     Les terrains sont répartis entre les brackets (comme
     `ordonnancer_poules_paralleles`) afin que principale et consolante avancent
     en même temps, au lieu de jouer tous les quarts d'une compétition puis tous
-    ceux de l'autre. Retourne la prochaine vague libre.
+    ceux de l'autre.
+
+    **Exception : les tours FINAUX (finale + petite finale) ne sont jamais joués
+    en même temps d'un bracket à l'autre.** Les tours non finaux se jouent en
+    parallèle, puis chaque finale est programmée sur sa propre vague (l'une après
+    l'autre), pour qu'un finaliste d'une compétition puisse arbitrer la finale de
+    l'autre. Chaque bracket reste sur son bloc de terrains dédié.
+
+    Retourne la prochaine vague libre.
     """
     if nb_terrains < 1:
         raise ValueError("Il faut au moins 1 terrain.")
@@ -121,14 +130,32 @@ def ordonnancer_elimination_parallele(groupes: list[list[Match]],
         n = len(lot)
         base = nb_terrains // n
         extra = nb_terrains % n
+
+        # Découpe chaque bracket : tours intermédiaires vs tour final, et calcule
+        # le bloc de terrains réservé à chacun.
+        blocs = []  # (matchs_intermediaires, matchs_finale, terrain_debut, nb)
         terrain = 1
-        fins = []
         for i, matchs in enumerate(lot):
             nb = base + (1 if i < extra else 0)
-            fins.append(_ordonnancer_elimination_bloc(matchs, terrain, nb,
-                                                      vague_globale))
+            dernier = max((m.tour_elim for m in matchs if m.tour_elim is not None),
+                          default=0)
+            intermediaires = [m for m in matchs if m.tour_elim != dernier]
+            finale = [m for m in matchs if m.tour_elim == dernier]
+            blocs.append((intermediaires, finale, terrain, nb))
             terrain += nb
-        vague_globale = max(fins)
+
+        # 1) Tours intermédiaires : en parallèle sur les blocs dédiés.
+        fins = [_ordonnancer_elimination_bloc(inter, td, nb, vague_globale)
+                for inter, _, td, nb in blocs if inter]
+        vague = max(fins) if fins else vague_globale
+
+        # 2) Tours finaux : un bracket après l'autre (jamais simultanés), chacun
+        #    sur son bloc de terrains.
+        for _, finale, td, nb in blocs:
+            if finale:
+                vague = _ordonnancer_elimination_bloc(finale, td, nb, vague)
+
+        vague_globale = vague
     return vague_globale
 
 
@@ -408,26 +435,103 @@ def assigner_arbitres(t: Tournoi, matchs: list[Match],
 
 
 def assigner_arbitres_elimination(t: Tournoi) -> None:
-    """Affecte les arbitres des matchs d'élimination, compétition par compétition
-    (un arbitre vient toujours de la MÊME compétition que le match arbitré).
+    """Affecte les arbitres de la phase éliminatoire selon des règles dédiées :
 
-    À rappeler après chaque propagation : les matchs dont les deux équipes ne
-    sont pas encore connues restent sans arbitre jusqu'à ce qu'elles le soient.
+    - **règle générale** : un arbitre ne joue jamais pendant la vague qu'il
+      arbitre (on prend toujours une équipe libre si possible) ;
+    - **finale** : arbitrée par un finaliste de l'AUTRE compétition — la finale
+      principale par un finaliste consolante et inversement. Les deux finales
+      n'ont pas lieu en même temps (cf. `ordonnancer_elimination_parallele`),
+      donc ces équipes sont disponibles ;
+    - **tours intermédiaires (demi-finales, etc.)** : arbitrés par une équipe
+      ÉLIMINÉE au tour précédent (elle ne joue plus, donc libre) ;
+    - **petite finale** : arbitrée par une équipe déjà éliminée du même tableau ;
+    - **premier tour** : par une équipe du tableau qui ne joue pas cette vague.
+
+    Si aucune équipe prévue n'est libre, on élargit le vivier (autres éliminés du
+    tableau, puis toute équipe du tableau, puis n'importe quelle équipe) ; en
+    dernier recours l'arbitrage est marqué auto-géré. À rappeler après chaque
+    résultat : les viviers se précisent au fil du bracket.
     """
-    # Vivier de chaque compétition (pour le secours croisé).
-    viviers: dict[Phase, list[int]] = {}
-    for phase in (Phase.PRINCIPALE, Phase.CONSOLANTE):
-        poules = t.poules_de(phase)
-        viviers[phase] = [e.id for e in poules[0].equipes] if poules else []
+    par_id = {e.id: e for e in t.equipes}
+    elim = [m for m in t.matchs if m.phase == Phase.ELIMINATION]
+    if not elim:
+        return
 
-    for phase in (Phase.PRINCIPALE, Phase.CONSOLANTE):
-        poules = t.poules_de(phase)
-        if not poules:
-            continue
-        pool_ids = viviers[phase]
-        autre = Phase.CONSOLANTE if phase == Phase.PRINCIPALE else Phase.PRINCIPALE
-        fallback_ids = viviers.get(autre, [])
-        groupe = poules[0].nom
-        ms = [m for m in t.matchs_de(Phase.ELIMINATION) if m.groupe == groupe]
-        if ms:
-            assigner_arbitres(t, ms, pool_ids, fallback_ids)
+    autre = {"Principale": "Consolante", "Consolante": "Principale"}
+
+    finalistes: dict[str, set[int]] = defaultdict(set)   # groupe -> finalistes
+    equipes_groupe: dict[str, set[int]] = defaultdict(set)  # groupe -> toutes
+    elimines_tour: dict[tuple[str, int], set[int]] = defaultdict(set)
+    elimines_groupe: dict[str, set[int]] = defaultdict(set)  # éliminés du tableau
+    for m in elim:
+        for e in (m.equipe_a, m.equipe_b):
+            if e is not None:
+                equipes_groupe[m.groupe].add(e.id)
+        if m.label_tour == "Finale":
+            for e in (m.equipe_a, m.equipe_b):
+                if e is not None:
+                    finalistes[m.groupe].add(e.id)
+        # Perdant d'un match joué = équipe éliminée à ce tour (la petite finale ne
+        # « sort » personne de plus : ses joueurs sont déjà des perdants de demie).
+        if m.joue and m.perdant is not None and m.label_tour != "Petite finale":
+            elimines_tour[(m.groupe, m.tour_elim)].add(m.perdant.id)
+            elimines_groupe[m.groupe].add(m.perdant.id)
+
+    # Charge d'arbitrage déjà posée dans les AUTRES phases (homogénéité globale).
+    charge: dict[int, int] = defaultdict(int)
+    for m in t.matchs:
+        arb = getattr(m, "arbitre", None)
+        if m.phase != Phase.ELIMINATION and arb is not None:
+            charge[arb.id] += 1
+
+    for m in elim:
+        m.arbitre = None
+        m.arbitre_auto = False
+
+    par_vague: dict[int, list[Match]] = defaultdict(list)
+    for m in elim:
+        par_vague[m.vague if m.vague is not None else -1].append(m)
+
+    for vague in sorted(par_vague):
+        groupe_matchs = par_vague[vague]
+        joueurs: set[int] = set()
+        for m in groupe_matchs:
+            for e in (m.equipe_a, m.equipe_b):
+                if e is not None:
+                    joueurs.add(e.id)
+        occupes: set[int] = set()  # arbitres déjà pris sur cette vague
+
+        def premier_libre(viviers: list[set[int]]) -> int | None:
+            for viv in viviers:
+                libres = [i for i in viv
+                          if i in par_id and i not in joueurs and i not in occupes]
+                if libres:
+                    return min(libres, key=lambda i: (charge[i], i))
+            return None
+
+        for m in groupe_matchs:
+            if m.equipe_a is None or m.equipe_b is None:
+                continue  # slot pas encore résolu
+            grp = m.groupe
+            if m.label_tour == "Finale":
+                prioritaire = finalistes.get(autre.get(grp, ""), set())
+            elif m.label_tour == "Petite finale":
+                prioritaire = elimines_groupe.get(grp, set())
+            elif m.tour_elim and m.tour_elim >= 2:
+                prioritaire = elimines_tour.get((grp, m.tour_elim - 1), set())
+            else:
+                prioritaire = set()  # 1er tour : directement le vivier du tableau
+            viviers = [
+                prioritaire,
+                elimines_groupe.get(grp, set()),
+                equipes_groupe.get(grp, set()),
+                set(par_id),
+            ]
+            choix = premier_libre(viviers)
+            if choix is None:
+                m.arbitre_auto = True
+                continue
+            m.arbitre = par_id[choix]
+            charge[choix] += 1
+            occupes.add(choix)

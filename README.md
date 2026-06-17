@@ -215,9 +215,9 @@ ou finale) : on retient les **meilleurs du groupe** (répartis équitablement en
 tous les 1ers d'abord, puis les 2es, etc.). S'il n'y a pas assez d'équipes, le tableau démarre
 **automatiquement à un tour plus avancé**. Le placement (têtes de série) est fait pour que
 **le 1er et le 2e ne puissent se rencontrer qu'en finale**. Chaque tableau comporte une
-**petite finale** (match pour la 3e place), et les arbitres viennent **en priorité** de la
-**même compétition** (à défaut, une équipe de l'autre compétition dépanne ; si aucune n'est
-libre, l'arbitrage est **auto-géré**). À la fin, le **podium** s'affiche avec 🥇🥈🥉.
+**petite finale** (match pour la 3e place). À la fin, le **podium** s'affiche avec 🥇🥈🥉.
+Le **classement courant** des poules finales est rappelé en deux tableaux (principale /
+consolante) au-dessus des brackets.
 
 Les deux tableaux (principale et consolante) sont ordonnancés **en parallèle** : les terrains
 sont **répartis entre les deux compétitions** (ex. 4 terrains = 2 pour la principale, 2 pour
@@ -225,6 +225,20 @@ la consolante) et leurs premiers tours **démarrent en même temps**. Fini « to
 la principale, puis tous les quarts de la consolante » — les deux brackets avancent ensemble.
 Comme pour les poules, un tour ne commence qu'une fois le précédent terminé (les équipes
 qualifiées doivent être connues).
+
+**Arbitrage de l'élimination** — une équipe n'arbitre jamais pendant qu'elle joue, et l'outil
+choisit l'arbitre selon le tour :
+- **finale** : arbitrée par un **finaliste de l'autre compétition** (la finale principale par un
+  finaliste consolante et inversement). Pour que ce soit possible, **les deux finales ne sont
+  jamais jouées en même temps** (l'une après l'autre) ;
+- **demi-finales (et tours intermédiaires)** : arbitrées par une **équipe éliminée au tour
+  précédent** (elle ne joue plus, donc disponible) ;
+- **petite finale** : par une équipe déjà éliminée du même tableau ;
+- **premier tour** : par une équipe du tableau qui ne joue pas sur ce créneau.
+
+Si aucune équipe prévue n'est libre, l'outil élargit le vivier puis, en dernier recours, passe
+le match en **arbitrage auto-géré**. La page publique affiche l'arbitre de chaque match du
+tableau.
 
 ### e. Les réglages (barre latérale ⚙️)
 
