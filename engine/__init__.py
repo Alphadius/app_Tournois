@@ -3,7 +3,7 @@ from .bracket import generer_bracket, ordre_tetes_de_serie, propager_vainqueur
 from .models import (
     Equipe, Match, Phase, Poule, ReglesScore, Tournoi, creer_equipes,
 )
-from .ranking import LigneClassement, classement_poule
+from .ranking import LigneClassement, classement_equipes, classement_poule
 from .suisse import (
     bye_du_tour, classement_suisse, nb_tours_recommande, peut_generer_tour_suivant,
     suisse_termine, tour_suisse_termine, tours_suisse,
@@ -17,7 +17,8 @@ from .scheduler import (
 from .persistence import dumps, from_dict, loads, to_dict
 from .stats import statistiques
 from .service import (
-    brassage_termine, classement_global_tour, classements_phase, classements_tour,
+    brassage_termine, classement_global_tour, classement_phase_unifie,
+    classements_phase, classements_tour,
     creer_tournoi, elimination_creee, elimination_terminee, enregistrer_resultat,
     enregistrer_set_sec, generer_elimination, generer_poules_finales,
     generer_tour_brassage_suivant, lancer_phase_classement, lancer_tour_brassage,
@@ -30,7 +31,7 @@ __all__ = [
     # modèles
     "Equipe", "Match", "Phase", "Poule", "ReglesScore", "Tournoi", "creer_equipes",
     # classement
-    "LigneClassement", "classement_poule",
+    "LigneClassement", "classement_equipes", "classement_poule",
     # système suisse
     "bye_du_tour", "classement_suisse", "nb_tours_recommande",
     "peut_generer_tour_suivant", "suisse_termine", "tour_suisse_termine", "tours_suisse",
@@ -42,8 +43,9 @@ __all__ = [
     # bracket
     "generer_bracket", "ordre_tetes_de_serie", "propager_vainqueur",
     # service
-    "brassage_termine", "classement_global_tour", "classements_phase",
-    "classements_tour", "creer_tournoi", "elimination_creee", "elimination_terminee",
+    "brassage_termine", "classement_global_tour", "classement_phase_unifie",
+    "classements_phase", "classements_tour", "creer_tournoi", "elimination_creee",
+    "elimination_terminee",
     "enregistrer_resultat", "enregistrer_set_sec", "generer_elimination",
     "generer_poules_finales", "generer_tour_brassage_suivant",
     "lancer_phase_classement", "lancer_tour_brassage", "maj_regles",

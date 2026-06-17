@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from .bracket import generer_bracket, propager_vainqueur
 from .models import Equipe, Phase, Poule, ReglesScore, Tournoi, creer_equipes
-from .ranking import LigneClassement, classement_poule
+from .ranking import LigneClassement, classement_equipes, classement_poule
 from .scheduler import (
     assigner_arbitres, assigner_arbitres_elimination, generer_matchs_phase,
     generer_matchs_poule, generer_matchs_poules, ordonnancer,
@@ -406,6 +406,18 @@ def podium(t: Tournoi) -> dict[str, dict[int, Equipe]]:
 # --------------------------------------------------------------------------- #
 def classements_phase(t: Tournoi, phase: Phase) -> dict[str, list[LigneClassement]]:
     return {p.nom: classement_poule(p, t.matchs, t.regles) for p in t.poules_de(phase)}
+
+
+def classement_phase_unifie(t: Tournoi, phase: Phase) -> list[LigneClassement]:
+    """Classement UNIFIÉ d'une compétition (toutes ses poules réunies en un seul
+    tableau). Utile pour la phase finale / éliminatoire où l'on veut un classement
+    principale et un classement consolante, quel que soit le nombre de poules."""
+    poules = t.poules_de(phase)
+    if not poules:
+        return []
+    equipes = [e for p in poules for e in p.equipes]
+    matchs = [m for m in t.matchs if m.phase == phase]
+    return classement_equipes(equipes, matchs, t.regles)
 
 
 def enregistrer_resultat(

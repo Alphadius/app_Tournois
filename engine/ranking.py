@@ -79,20 +79,9 @@ def _confrontation_directe(a: Equipe, b: Equipe, matchs: list[Match]) -> int:
     return bilan
 
 
-def classement_poule(poule: Poule, matchs: list[Match], regles: ReglesScore) -> list[LigneClassement]:
-    """Retourne les lignes de classement triées (meilleure équipe en premier)."""
-    lignes: dict[int, LigneClassement] = {e.id: LigneClassement(equipe=e) for e in poule.equipes}
-    # On filtre par phase ET par nom de poule : un bracket d'élimination peut
-    # porter le même nom ("Principale") que la poule, sans être le même match.
-    matchs_poule = [
-        m for m in matchs
-        if m.poule == poule.nom and m.phase == poule.phase
-        and m.equipe_a is not None and m.equipe_b is not None
-    ]
-    for m in matchs_poule:
-        if m.equipe_a.id in lignes and m.equipe_b.id in lignes:
-            _accumuler(lignes, m, regles)
-
+def _trier_lignes(lignes: list[LigneClassement], matchs: list[Match],
+                  regles: ReglesScore) -> list[LigneClassement]:
+    """Trie des lignes déjà calculées selon l'ordre de départage des règles."""
     def comparer(x: LigneClassement, y: LigneClassement) -> int:
         for critere in regles.departage:
             if critere == "points":
@@ -102,7 +91,7 @@ def classement_poule(poule: Poule, matchs: list[Match], regles: ReglesScore) -> 
             elif critere == "ratio_points":
                 d = y.ratio_points - x.ratio_points
             elif critere == "confrontation":
-                d = -_confrontation_directe(x.equipe, y.equipe, matchs_poule)
+                d = -_confrontation_directe(x.equipe, y.equipe, matchs)
             else:
                 d = 0
             if d != 0:
@@ -110,4 +99,34 @@ def classement_poule(poule: Poule, matchs: list[Match], regles: ReglesScore) -> 
         # dernier recours : ordre stable par nom
         return (x.equipe.nom > y.equipe.nom) - (x.equipe.nom < y.equipe.nom)
 
-    return sorted(lignes.values(), key=cmp_to_key(comparer))
+    return sorted(lignes, key=cmp_to_key(comparer))
+
+
+def classement_equipes(equipes: list[Equipe], matchs: list[Match],
+                       regles: ReglesScore) -> list[LigneClassement]:
+    """Classement d'un ensemble d'équipes sur les matchs qui les opposent.
+
+    Pratique pour un classement *unifié* couvrant plusieurs poules d'une même
+    compétition (les confrontations entre équipes de poules différentes n'existent
+    pas, donc ne comptent pas). Meilleure équipe en premier.
+    """
+    lignes: dict[int, LigneClassement] = {e.id: LigneClassement(equipe=e) for e in equipes}
+    pertinents = [
+        m for m in matchs
+        if m.joue and m.equipe_a is not None and m.equipe_b is not None
+        and m.equipe_a.id in lignes and m.equipe_b.id in lignes
+    ]
+    for m in pertinents:
+        _accumuler(lignes, m, regles)
+    return _trier_lignes(list(lignes.values()), pertinents, regles)
+
+
+def classement_poule(poule: Poule, matchs: list[Match], regles: ReglesScore) -> list[LigneClassement]:
+    """Retourne les lignes de classement triées (meilleure équipe en premier)."""
+    # On filtre par phase ET par nom de poule : un bracket d'élimination peut
+    # porter le même nom ("Principale") que la poule, sans être le même match.
+    matchs_poule = [
+        m for m in matchs
+        if m.poule == poule.nom and m.phase == poule.phase
+    ]
+    return classement_equipes(poule.equipes, matchs_poule, regles)

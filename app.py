@@ -17,8 +17,8 @@ import streamlit.components.v1 as components
 import sync
 
 from engine import (
-    Phase, ReglesScore, bye_du_tour, classement_suisse, classements_tour,
-    creer_tournoi, dumps, elimination_creee, enregistrer_set_sec,
+    Phase, ReglesScore, bye_du_tour, classement_phase_unifie, classement_suisse,
+    classements_tour, creer_tournoi, dumps, elimination_creee, enregistrer_set_sec,
     generer_elimination, generer_poules_finales, generer_tour_brassage_suivant,
     lancer_tour_brassage, loads, maj_regles, nb_poules_pour_taille,
     nb_tours_recommande, podium, poules_finales_creees, poules_finales_terminees,
@@ -669,16 +669,17 @@ def onglet_elimination(t):
                 f"{medailles[r]} {classement[r].nom}"
                 for r in (1, 2, 3, 4) if r in classement)
             st.success(f"**{groupe}** — {texte}")
-    # Classement courant des poules finales, en deux tableaux (principale /
-    # consolante) — utile pour suivre les têtes de série pendant le bracket.
-    cl_principale = {p.nom: classement_poule(p, t.matchs, t.regles)
-                     for p in t.poules_de(Phase.PRINCIPALE)}
-    cl_consolante = {p.nom: classement_poule(p, t.matchs, t.regles)
-                     for p in t.poules_de(Phase.CONSOLANTE)}
-    if cl_principale or cl_consolante:
-        st.subheader("📊 Classement courant")
-        afficher_classements(cl_principale, "🏆 Principale")
-        afficher_classements(cl_consolante, "🥈 Consolante")
+    # Classement courant : UN seul tableau par compétition (toutes les poules de
+    # la principale réunies, idem consolante), même s'il y a plusieurs poules.
+    tables = {}
+    cl_principale = classement_phase_unifie(t, Phase.PRINCIPALE)
+    cl_consolante = classement_phase_unifie(t, Phase.CONSOLANTE)
+    if cl_principale:
+        tables["🏆 Principale"] = cl_principale
+    if cl_consolante:
+        tables["🥈 Consolante"] = cl_consolante
+    if tables:
+        afficher_classements(tables, "📊 Classement courant")
         st.divider()
 
     for groupe in ("Principale", "Consolante"):
