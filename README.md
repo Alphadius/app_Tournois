@@ -276,37 +276,111 @@ Comme pour le planning, ouvre le fichier puis `Cmd/Ctrl + P` pour l'imprimer ou 
 ### i. Diffuser le planning en ligne (page publique en lecture seule)
 
 Tu peux donner aux participants un **lien web** qui montre, en direct, les **matchs en cours**,
-les **prochains matchs** et le **classement** — **sans** qu'ils puissent rien modifier. Le
-principe : ton app principale (`app.py`) tourne sur **ta** machine et **publie** l'état du
-tournoi ; une **seconde app** (`public.py`) déployée en ligne se contente de **lire** ces
-données et de les afficher (aucune saisie possible).
+les **prochains matchs** et le **classement** — **sans** qu'ils puissent rien modifier.
 
-La synchronisation passe par un **Gist GitHub** : ta machine y écrit (avec un token qui ne
-quitte jamais ton ordinateur), la page publique lit l'URL publique du Gist (sans token).
+#### Comment ça marche (le principe)
 
-**Mise en place (une seule fois) :**
+Il y a **deux apps** et **un fichier-relais** en ligne :
 
-1. **Crée un Gist** sur [gist.github.com](https://gist.github.com) : un fichier nommé
-   `tournoi.json`, contenu `{}`, type **public**, puis *Create public gist*. Note l'**ID**
-   (la longue suite de caractères dans l'URL) et ton **login GitHub**.
-2. **Crée un token GitHub** : *Settings → Developer settings → Personal access tokens →
-   Tokens (classic) → Generate new token*, coche **uniquement** le scope **`gist`**. Copie
-   le token (`github_pat_…` / `ghp_…`).
-3. **Sur ta machine**, copie `.streamlit/secrets.toml.example` en `.streamlit/secrets.toml`
-   (non versionné) et renseigne `GIST_ID`, `GIST_USER`, `GIST_TOKEN`.
-4. **Déploie la page publique** sur [share.streamlit.io](https://share.streamlit.io) :
-   connecte ton dépôt GitHub, choisis **`public.py`** comme fichier principal, et dans les
-   **Secrets** de l'app mets **seulement** `GIST_ID` et `GIST_USER` (⚠️ **pas** le token : la
-   page publique ne doit jamais pouvoir écrire). Tu obtiens une URL `https://….streamlit.app`.
+```
+  Ton ordi (app.py)  ── écrit ──►  Gist GitHub  ── lit ──►  Page publique (public.py)
+   [avec ton token]                (tournoi.json)            [aucun token, lecture seule]
+```
 
-**Au quotidien :** dans la barre latérale de ton app, coche **« 📡 Publier le planning en
-ligne »** (ou clique sur **« Publier maintenant »**). À chaque score saisi, la page publique
-se met à jour toute seule en ~20 s. Partage l'URL `.streamlit.app` aux participants. (Tu peux
-mettre cette URL dans `APP_PUBLIQUE_URL` de ton `secrets.toml` local pour l'afficher dans la
-barre latérale.)
+- **`app.py`** tourne sur **ta** machine (saisie des scores) et **publie** l'état du tournoi
+  dans un **Gist GitHub** (un petit fichier en ligne), grâce à un **token** qui ne quitte
+  jamais ton ordinateur.
+- **`public.py`** est déployée sur **Streamlit Community Cloud** : elle **lit** ce fichier et
+  l'affiche. Comme elle n'a **aucun** champ de saisie ni token, les participants ne peuvent
+  rien modifier — c'est garanti par construction.
 
-> Il faut une connexion internet sur ta machine pour publier ; sans réseau, l'app locale
-> continue de fonctionner normalement, seule la page en ligne ne se met plus à jour.
+> Il faut une connexion internet sur ta machine pour publier. Sans réseau, l'app locale
+> continue de fonctionner normalement ; seule la page en ligne cesse de se mettre à jour.
+
+#### Mise en place (une seule fois, ~15 min)
+
+**Étape 1 — Créer le Gist (le fichier-relais)**
+1. Va sur [gist.github.com](https://gist.github.com) (connecte-toi à ton compte GitHub).
+2. Nom du fichier : **`tournoi.json`** — contenu : **`{}`**.
+3. Bouton en bas → **« Create public gist »** (⚠️ **public**, pas *secret* : sinon la lecture
+   sans token ne marchera pas).
+4. Dans l'URL de la page, repère :
+   - ton **login GitHub** (ex. `TON_LOGIN`) ;
+   - l'**ID du Gist** = la longue suite de caractères, **sans rien d'autre**.
+     L'URL ressemble à `https://gist.github.com/TON_LOGIN/abcdef0123456789…` →
+     l'ID est `abcdef0123456789…`.
+   - ⚠️ **Piège fréquent :** ne copie **pas** un morceau qui contient `#file-tournoi-json`
+     (c'est une ancre de la page, pas l'ID). L'ID ne contient **jamais** de `#`.
+
+**Étape 2 — Créer le token GitHub (le « mot de passe » d'écriture)**
+1. [github.com/settings/tokens](https://github.com/settings/tokens) → bouton
+   **« Generate new token »** → choisis bien **« Generate new token (classic) »**.
+   - ⚠️ **Pas** le type *fine-grained* (celui qui demande « public/all/select repositories ») :
+     il **ne gère pas** les Gists. Le type *classic* propose une liste de cases à cocher.
+2. **Note** : `tournoi-volley` — **Expiration** : une date après ton tournoi.
+3. **Select scopes** : coche **uniquement** la case **`gist`**.
+4. **Generate token** → copie le token (`ghp_…`) **tout de suite** (il ne s'affiche qu'une fois).
+
+**Étape 3 — Configurer ta machine**
+1. Copie le modèle de secrets :
+   ```bash
+   cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+   ```
+2. Ouvre `.streamlit/secrets.toml` et renseigne **tes** valeurs :
+   ```toml
+   GIST_ID = "abcdef0123456789..."     # l'ID seul, SANS #file-...
+   GIST_USER = "TON_LOGIN"
+   GIST_TOKEN = "ghp_xxxxxxxxxxxx"      # reste sur ta machine, jamais en ligne
+   ```
+   > Ce fichier est **ignoré par git** (voir `.gitignore`) : ton token ne partira jamais sur
+   > GitHub, même si ton dépôt est public.
+
+**Étape 4 — Rendre le dépôt accessible à Streamlit**
+
+Streamlit Community Cloud doit pouvoir lire le code. Deux possibilités :
+- **Dépôt privé** : au moment de te connecter sur Streamlit, autorise l'accès à tes dépôts
+  privés (via la *GitHub App* « Streamlit Community Cloud » → *Configure* → ajoute le dépôt).
+- **Dépôt public** (le plus simple) : *Settings* du dépôt → *Danger Zone* →
+  *Change repository visibility* → *Public*. C'est **sans risque** ici : aucun secret n'est
+  versionné (le `secrets.toml` est ignoré, et le code ne contient aucun token).
+
+**Étape 5 — Déployer la page publique**
+1. Va sur [share.streamlit.io](https://share.streamlit.io) → connecte-toi avec GitHub.
+2. **« Create app »** → **« Deploy a public app from GitHub »**.
+3. Renseigne :
+   - **Repository** : `TON_LOGIN/app_Tournois`
+   - **Branch** : `main`
+   - **Main file path** : **`public.py`**  ⚠️ (bien `public.py`, **pas** `app.py`)
+4. **« Advanced settings… »** → **Secrets** → colle **uniquement** (⚠️ **jamais** le token) :
+   ```toml
+   GIST_ID = "abcdef0123456789..."
+   GIST_USER = "TON_LOGIN"
+   ```
+5. **« Deploy »** → patiente 1-2 min → tu obtiens une URL `https://ton-app.streamlit.app`.
+6. *(facultatif)* Mets cette URL dans `APP_PUBLIQUE_URL` de ton `secrets.toml` **local**
+   (décommente la ligne) pour l'afficher en clair dans la barre latérale de ton app.
+
+#### Au quotidien (le jour du tournoi)
+
+1. Lance ton app : `.venv/bin/streamlit run app.py`.
+2. Barre latérale → section **« 📡 Diffusion en ligne »** → coche **« Publier le planning en
+   ligne »** (une seule fois). Tu peux aussi forcer un envoi avec **« Publier maintenant »**.
+3. Partage l'URL `https://ton-app.streamlit.app` aux participants (lien, QR code…).
+4. À chaque score saisi, la page publique se met à jour automatiquement en **~20 s**.
+
+#### En cas de souci
+
+| Symptôme | Cause / solution |
+|---|---|
+| Page publique bloquée sur « En attente de données… » | `GIST_ID` ou `GIST_USER` faux **dans les Secrets de Streamlit Cloud** (pas le fichier local !). Vérifie surtout que `GIST_ID` ne contient **pas** `#file-…`. Corrige puis *Reboot app*. |
+| « Échec de la publication » côté app locale | Token mal copié, scope `gist` non coché, ou pas d'internet. Recrée le token (étape 2). |
+| La case « 📡 Publier » n'apparaît pas | `secrets.toml` manquant ou incomplet (`GIST_ID` + `GIST_TOKEN` requis). Relance l'app après l'avoir rempli. |
+| Le lien dans la barre latérale ne s'affiche pas | La ligne `APP_PUBLIQUE_URL` est restée **commentée** (`#`) — enlève le `#` et relance l'app. |
+| Le classement n'apparaît pas en ligne | Mets à jour le code en ligne : `git push` (Streamlit redéploie tout seul), ou *Reboot app*. |
+| `git push` → « Everything up-to-date » alors que tu as ajouté un fichier | `git add` ne suffit pas : il faut **committer** (`git commit -m "..."`) avant de pousser. |
+| `git push` → « rejected … fetch first » | Le distant a des commits que tu n'as pas. Fais `git pull --rebase origin main` puis `git push`. |
+| Erreur au déploiement Streamlit | Vérifie **Main file path = `public.py`** et que le code est bien **poussé** sur GitHub. |
+| Léger décalage du planning/classement | Normal : ~20 s (rafraîchissement + cache GitHub). |
 
 ---
 
