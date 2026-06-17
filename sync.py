@@ -116,16 +116,19 @@ def publier(contenu_json: str) -> bool:
         except Exception:  # noqa: BLE001
             detail = ""
         if e.code in (403, 429) and "rate limit" in detail:
-            # GitHub indique parfois combien de temps patienter (Retry-After,
-            # en secondes). À défaut, on applique 60 s par sécurité.
+            # GitHub indique parfois combien de temps patienter (Retry-After, en
+            # secondes). La limite secondaire « anti-abus » n'envoie souvent RIEN
+            # et reste active plusieurs minutes (toute requête la relance) : à
+            # défaut d'en-tête, on patiente donc plus longtemps (180 s).
             try:
-                attente = int(e.headers.get("Retry-After", "60"))
+                attente = int(e.headers.get("Retry-After"))
             except (TypeError, ValueError):
-                attente = 60
+                attente = 180
             attente = max(attente, 60)
             _BLOQUE_JUSQUA = time.monotonic() + attente
-            _DERNIERE_ERREUR = ("Limite de requêtes GitHub atteinte : trop de "
-                                f"publications rapprochées. Réessaie dans {attente} s.")
+            _DERNIERE_ERREUR = ("Limite de requêtes GitHub atteinte : arrête de "
+                                f"publier {attente} s (chaque essai prolonge le "
+                                "blocage), puis réessaie.")
         elif e.code in (401, 403):
             _DERNIERE_ERREUR = ("Accès refusé par GitHub : vérifie que le token "
                                 "(classique, scope « gist ») est valide.")
