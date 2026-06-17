@@ -13,7 +13,7 @@ import streamlit as st
 
 import sync
 from engine import (
-    Phase, classement_suisse, classements_phase, classements_tour, loads,
+    Phase, classement_phase_unifie, classement_suisse, classements_tour, loads,
 )
 
 st.set_page_config(page_title="Tournoi — suivi en direct",
@@ -115,19 +115,20 @@ def _section_brackets(t) -> None:
 
 
 def _section_classement(t) -> None:
-    """Affiche les classements de la phase la plus avancée disponible."""
-    poules_p = classements_phase(t, Phase.PRINCIPALE)
-    poules_c = classements_phase(t, Phase.CONSOLANTE)
-    if poules_p or poules_c:
-        for titre, groupes in (("🏆 Principale", poules_p),
-                               ("🥈 Consolante", poules_c)):
-            if not groupes:
+    """Affiche les classements de la phase la plus avancée disponible.
+
+    Dès qu'une phase finale (principale / consolante) existe, on montre un
+    classement *unifié* par compétition (toutes les poules finales fusionnées),
+    ce qui reste pertinent pendant l'élimination directe.
+    """
+    cl_p = classement_phase_unifie(t, Phase.PRINCIPALE)
+    cl_c = classement_phase_unifie(t, Phase.CONSOLANTE)
+    if cl_p or cl_c:
+        for titre, lignes in (("🏆 Principale", cl_p), ("🥈 Consolante", cl_c)):
+            if not lignes:
                 continue
             st.markdown(f"#### {titre}")
-            for nom, lignes in groupes.items():
-                if len(groupes) > 1:
-                    st.caption(nom)
-                _classement(lignes)
+            _classement(lignes)
         return
 
     # Système suisse : classement général cumulé (pas de poules de brassage).
