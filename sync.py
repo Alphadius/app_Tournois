@@ -29,11 +29,20 @@ _FICHIER_DEFAUT = "tournoi.json"
 
 # Détail de la dernière erreur de publication (pour un message clair à l'écran).
 _DERNIERE_ERREUR: str | None = None
+# Instant (time.monotonic) avant lequel on ne RETENTE PAS d'écrire, pour respecter
+# la limite secondaire de GitHub (toute requête pendant le blocage le prolonge).
+_BLOQUE_JUSQUA: float = 0.0
 
 
 def derniere_erreur() -> str | None:
     """Message lisible expliquant le dernier échec de `publier` (ou None)."""
     return _DERNIERE_ERREUR
+
+
+def secondes_avant_retry() -> int:
+    """Secondes restantes avant de pouvoir réessayer de publier (0 si possible)."""
+    import math
+    return max(0, math.ceil(_BLOQUE_JUSQUA - time.monotonic()))
 
 
 def _config(cle: str, defaut: str | None = None) -> str | None:
@@ -80,11 +89,18 @@ def publier(contenu_json: str) -> bool:
     Ne lève jamais d'exception : en cas de souci (hors-ligne, token invalide,
     quota…) renvoie simplement False, pour ne jamais perturber l'app locale.
     """
-    global _DERNIERE_ERREUR
+    global _DERNIERE_ERREUR, _BLOQUE_JUSQUA
     _DERNIERE_ERREUR = None
     gid, token = _config("GIST_ID"), _config("GIST_TOKEN")
     if not (gid and token):
         _DERNIERE_ERREUR = "Diffusion non configurée (GIST_ID / GIST_TOKEN manquant)."
+        return False
+    # Si GitHub nous a demandé d'attendre, on ne retente pas avant la fin du délai
+    # (toute requête prématurée prolongerait le blocage côté serveur).
+    restant = secondes_avant_retry()
+    if restant > 0:
+        _DERNIERE_ERREUR = (f"Limite GitHub : attends encore {restant} s avant de "
+                            "republier (réessayer maintenant prolonge le blocage).")
         return False
     corps = json.dumps({"files": {_fichier(): {"content": contenu_json}}}).encode()
     req = urllib.request.Request(_API + gid, data=corps, method="PATCH")
@@ -100,8 +116,16 @@ def publier(contenu_json: str) -> bool:
         except Exception:  # noqa: BLE001
             detail = ""
         if e.code in (403, 429) and "rate limit" in detail:
+            # GitHub indique parfois combien de temps patienter (Retry-After,
+            # en secondes). À défaut, on applique 60 s par sécurité.
+            try:
+                attente = int(e.headers.get("Retry-After", "60"))
+            except (TypeError, ValueError):
+                attente = 60
+            attente = max(attente, 60)
+            _BLOQUE_JUSQUA = time.monotonic() + attente
             _DERNIERE_ERREUR = ("Limite de requêtes GitHub atteinte : trop de "
-                                "publications rapprochées. Réessaie dans une minute.")
+                                f"publications rapprochées. Réessaie dans {attente} s.")
         elif e.code in (401, 403):
             _DERNIERE_ERREUR = ("Accès refusé par GitHub : vérifie que le token "
                                 "(classique, scope « gist ») est valide.")
