@@ -35,6 +35,11 @@ st.set_page_config(page_title="Tournoi Volley", page_icon="🏐", layout="wide")
 
 AUTOSAVE = Path(__file__).parent / ".autosave" / "dernier.json"
 
+# Intervalle minimal (s) entre deux publications AUTOMATIQUES en ligne, pour ne
+# pas déclencher la limite anti-rafale de l'API GitHub (la page publique ne se
+# rafraîchit de toute façon que toutes les ~20 s).
+PUBLI_INTERVALLE = 20
+
 
 def tournoi():
     return st.session_state.get("tournoi")
@@ -64,7 +69,18 @@ def diffuser(t, force: bool = False) -> bool:
     empreinte = hash(contenu)
     if not force and st.session_state.get("_pub_hash") == empreinte:
         return False  # rien de neuf à publier
+    # Anti-rafale : en automatique on ne publie qu'au plus une fois toutes les
+    # PUBLI_INTERVALLE secondes (la page publique ne se rafraîchit de toute façon
+    # que toutes les ~20 s). Évite la limite secondaire de l'API GitHub quand on
+    # saisit plusieurs scores d'affilée. Le bouton « Publier maintenant » (force)
+    # n'est pas limité.
+    if not force:
+        maintenant = time.monotonic()
+        dernier = st.session_state.get("_pub_ts", 0.0)
+        if maintenant - dernier < PUBLI_INTERVALLE:
+            return False
     if sync.publier(contenu):
+        st.session_state["_pub_ts"] = time.monotonic()
         st.session_state["_pub_hash"] = empreinte
         st.session_state["_pub_heure"] = time.strftime("%H:%M:%S")
         return True
@@ -351,7 +367,8 @@ def sidebar_reglages(t):
                 if diffuser(t, force=True):
                     st.toast("Planning publié en ligne 📡")
                 else:
-                    st.toast("Échec de la publication (connexion ?)", icon="⚠️")
+                    raison = sync.derniere_erreur() or "Échec de la publication."
+                    st.toast(raison, icon="⚠️")
             lien = sync.app_publique_url()
             if lien:
                 st.caption(f"🔗 Page publique : {lien}")

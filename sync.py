@@ -21,10 +21,19 @@ from __future__ import annotations
 import json
 import os
 import time
+import urllib.error
 import urllib.request
 
 _API = "https://api.github.com/gists/"
 _FICHIER_DEFAUT = "tournoi.json"
+
+# Détail de la dernière erreur de publication (pour un message clair à l'écran).
+_DERNIERE_ERREUR: str | None = None
+
+
+def derniere_erreur() -> str | None:
+    """Message lisible expliquant le dernier échec de `publier` (ou None)."""
+    return _DERNIERE_ERREUR
 
 
 def _config(cle: str, defaut: str | None = None) -> str | None:
@@ -71,8 +80,11 @@ def publier(contenu_json: str) -> bool:
     Ne lève jamais d'exception : en cas de souci (hors-ligne, token invalide,
     quota…) renvoie simplement False, pour ne jamais perturber l'app locale.
     """
+    global _DERNIERE_ERREUR
+    _DERNIERE_ERREUR = None
     gid, token = _config("GIST_ID"), _config("GIST_TOKEN")
     if not (gid and token):
+        _DERNIERE_ERREUR = "Diffusion non configurée (GIST_ID / GIST_TOKEN manquant)."
         return False
     corps = json.dumps({"files": {_fichier(): {"content": contenu_json}}}).encode()
     req = urllib.request.Request(_API + gid, data=corps, method="PATCH")
@@ -82,7 +94,24 @@ def publier(contenu_json: str) -> bool:
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
             return 200 <= r.status < 300
-    except Exception:  # noqa: BLE001 - publication best-effort
+    except urllib.error.HTTPError as e:  # réponse GitHub avec un code d'erreur
+        try:
+            detail = e.read().decode("utf-8", "replace").lower()
+        except Exception:  # noqa: BLE001
+            detail = ""
+        if e.code in (403, 429) and "rate limit" in detail:
+            _DERNIERE_ERREUR = ("Limite de requêtes GitHub atteinte : trop de "
+                                "publications rapprochées. Réessaie dans une minute.")
+        elif e.code in (401, 403):
+            _DERNIERE_ERREUR = ("Accès refusé par GitHub : vérifie que le token "
+                                "(classique, scope « gist ») est valide.")
+        elif e.code == 404:
+            _DERNIERE_ERREUR = "Gist introuvable : vérifie GIST_ID."
+        else:
+            _DERNIERE_ERREUR = f"GitHub a répondu une erreur {e.code}."
+        return False
+    except Exception:  # noqa: BLE001 - hors-ligne, DNS, timeout…
+        _DERNIERE_ERREUR = "Pas de connexion à GitHub (réseau indisponible ?)."
         return False
 
 
