@@ -273,6 +273,41 @@ et une **zone de score final** (+ vainqueur).
 
 Comme pour le planning, ouvre le fichier puis `Cmd/Ctrl + P` pour l'imprimer ou le garder en PDF.
 
+### i. Diffuser le planning en ligne (page publique en lecture seule)
+
+Tu peux donner aux participants un **lien web** qui montre, en direct, les **matchs en cours**,
+les **prochains matchs** et le **classement** — **sans** qu'ils puissent rien modifier. Le
+principe : ton app principale (`app.py`) tourne sur **ta** machine et **publie** l'état du
+tournoi ; une **seconde app** (`public.py`) déployée en ligne se contente de **lire** ces
+données et de les afficher (aucune saisie possible).
+
+La synchronisation passe par un **Gist GitHub** : ta machine y écrit (avec un token qui ne
+quitte jamais ton ordinateur), la page publique lit l'URL publique du Gist (sans token).
+
+**Mise en place (une seule fois) :**
+
+1. **Crée un Gist** sur [gist.github.com](https://gist.github.com) : un fichier nommé
+   `tournoi.json`, contenu `{}`, type **public**, puis *Create public gist*. Note l'**ID**
+   (la longue suite de caractères dans l'URL) et ton **login GitHub**.
+2. **Crée un token GitHub** : *Settings → Developer settings → Personal access tokens →
+   Tokens (classic) → Generate new token*, coche **uniquement** le scope **`gist`**. Copie
+   le token (`github_pat_…` / `ghp_…`).
+3. **Sur ta machine**, copie `.streamlit/secrets.toml.example` en `.streamlit/secrets.toml`
+   (non versionné) et renseigne `GIST_ID`, `GIST_USER`, `GIST_TOKEN`.
+4. **Déploie la page publique** sur [share.streamlit.io](https://share.streamlit.io) :
+   connecte ton dépôt GitHub, choisis **`public.py`** comme fichier principal, et dans les
+   **Secrets** de l'app mets **seulement** `GIST_ID` et `GIST_USER` (⚠️ **pas** le token : la
+   page publique ne doit jamais pouvoir écrire). Tu obtiens une URL `https://….streamlit.app`.
+
+**Au quotidien :** dans la barre latérale de ton app, coche **« 📡 Publier le planning en
+ligne »** (ou clique sur **« Publier maintenant »**). À chaque score saisi, la page publique
+se met à jour toute seule en ~20 s. Partage l'URL `.streamlit.app` aux participants. (Tu peux
+mettre cette URL dans `APP_PUBLIQUE_URL` de ton `secrets.toml` local pour l'afficher dans la
+barre latérale.)
+
+> Il faut une connexion internet sur ta machine pour publier ; sans réseau, l'app locale
+> continue de fonctionner normalement, seule la page en ligne ne se met plus à jour.
+
 ---
 
 ## 6. En cas de souci
@@ -291,6 +326,8 @@ Comme pour le planning, ouvre le fichier puis `Cmd/Ctrl + P` pour l'imprimer ou 
 ```
 app_Tournois/
 ├── app.py            # l'interface Streamlit (ce que tu vois dans le navigateur)
+├── public.py         # page publique en lecture seule (planning + classement en ligne)
+├── sync.py           # publication / lecture du tournoi via un Gist GitHub
 ├── printview.py      # génération de la feuille de planning imprimable
 ├── engine/           # le « moteur » du tournoi (indépendant de l'interface)
 │   ├── models.py     #   équipes, matchs, poules, règles de score

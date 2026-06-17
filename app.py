@@ -7,11 +7,14 @@ Lancement :  streamlit run app.py
 """
 from __future__ import annotations
 
+import time
 from collections import defaultdict
 from pathlib import Path
 
 import streamlit as st
 import streamlit.components.v1 as components
+
+import sync
 
 from engine import (
     Phase, ReglesScore, bye_du_tour, classement_suisse, classements_tour,
@@ -44,6 +47,28 @@ def autosave(t) -> None:
         AUTOSAVE.write_text(dumps(t), encoding="utf-8")
     except Exception:  # noqa: BLE001 - la sauvegarde auto ne doit jamais planter l'UI
         pass
+
+
+def diffuser(t, force: bool = False) -> bool:
+    """Publie l'état du tournoi en ligne (Gist) pour la page publique en lecture
+    seule. On ne pousse que si la diffusion est activée (case cochée) OU si
+    `force=True` (bouton « Publier maintenant »), et seulement quand le contenu a
+    changé depuis le dernier envoi — pour éviter une requête à chaque interaction.
+    Renvoie True si une publication a réussi.
+    """
+    if not sync.configure_ecriture():
+        return False
+    if not force and not st.session_state.get("publier_en_ligne"):
+        return False
+    contenu = dumps(t)
+    empreinte = hash(contenu)
+    if not force and st.session_state.get("_pub_hash") == empreinte:
+        return False  # rien de neuf à publier
+    if sync.publier(contenu):
+        st.session_state["_pub_hash"] = empreinte
+        st.session_state["_pub_heure"] = time.strftime("%H:%M:%S")
+        return True
+    return False
 
 
 def restaurer_autosave():
@@ -310,6 +335,29 @@ def sidebar_reglages(t):
                                              use_container_width=True):
             if charger_fichier(fichier):
                 st.rerun()
+
+        st.divider()
+        st.markdown("**📡 Diffusion en ligne (lecture seule)**")
+        if not sync.configure_ecriture():
+            st.caption("Non configurée. Ajoute `GIST_ID`, `GIST_USER` et "
+                       "`GIST_TOKEN` dans `.streamlit/secrets.toml` pour publier "
+                       "le planning en ligne (voir le README).")
+        else:
+            st.checkbox(
+                "Publier le planning en ligne", key="publier_en_ligne",
+                help="Met à jour automatiquement la page publique (planning + "
+                     "classement) à chaque changement de score.")
+            if st.button("Publier maintenant", use_container_width=True):
+                if diffuser(t, force=True):
+                    st.toast("Planning publié en ligne 📡")
+                else:
+                    st.toast("Échec de la publication (connexion ?)", icon="⚠️")
+            lien = sync.app_publique_url()
+            if lien:
+                st.caption(f"🔗 Page publique : {lien}")
+            heure = st.session_state.get("_pub_heure")
+            if heure:
+                st.caption(f"Dernière publication : {heure}")
 
         st.divider()
         st.markdown("**Bilan**")
@@ -707,6 +755,8 @@ def ecran_tournoi(t):
 
     # Sauvegarde automatique de l'état courant à chaque interaction.
     autosave(t)
+    # Diffusion en ligne (si activée) : ne pousse que si le contenu a changé.
+    diffuser(t)
 
 
 def main():
