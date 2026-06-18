@@ -15,6 +15,16 @@ def _nom(equipe) -> str:
     return escape(equipe.nom) if equipe is not None else "—"
 
 
+def _nom_cap(equipe) -> str:
+    """Nom de l'équipe suivi du capitaine s'il est renseigné (feuille de match)."""
+    if equipe is None:
+        return "—"
+    cap = getattr(equipe, "capitaine", "")
+    if cap:
+        return f"{escape(equipe.nom)} <span class='cap'>· cap. {escape(cap)}</span>"
+    return escape(equipe.nom)
+
+
 def _score(m) -> str:
     if m.joue:
         return f"{m.points_a} : {m.points_b}"
@@ -150,6 +160,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
 .sheet .meta { text-align: right; font-size: 13px; color: #333; line-height: 1.5; }
 .sheet .meta .terrain { font-size: 20px; font-weight: 800; color: #111; }
 .equipe { font-size: 16px; font-weight: 700; margin: 9px 0 1px; }
+.cap { font-size: 12px; font-weight: 400; color: #555; }
 .grille { line-height: 0; }
 .case { display: inline-block; width: 23px; height: 23px; line-height: 23px;
         text-align: center; border: 1px solid #999; margin: 2px; font-size: 11px;
@@ -198,9 +209,9 @@ def _sheet_match(tournoi_nom: str, m, regles=None) -> str:
         f"<div>🎯 {cible} points</div>"
         f"<div>Arbitre : {_arbitre_txt(m)}</div></div>"
         "</div>"
-        f"<div class='equipe'>A · {_nom(m.equipe_a)}</div>"
+        f"<div class='equipe'>A · {_nom_cap(m.equipe_a)}</div>"
         f"<div class='grille'>{cases}</div>"
-        f"<div class='equipe'>B · {_nom(m.equipe_b)}</div>"
+        f"<div class='equipe'>B · {_nom_cap(m.equipe_b)}</div>"
         f"<div class='grille'>{cases}</div>"
         "<div class='final'>Score final : "
         f"<b>{_nom(m.equipe_a)}</b> <span class='box'></span>"
