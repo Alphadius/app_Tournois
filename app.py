@@ -7,6 +7,7 @@ Lancement :  streamlit run app.py
 """
 from __future__ import annotations
 
+import json
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -121,6 +122,68 @@ def charger_fichier(uploaded) -> bool:
     except Exception as e:  # noqa: BLE001 - on remonte l'erreur à l'utilisateur
         st.error(f"Fichier invalide : {e}")
         return False
+
+
+# --------------------------------------------------------------------------- #
+#  Saisie des équipes (noms simples / ligne détaillée / import JSON)
+# --------------------------------------------------------------------------- #
+def parser_lignes_simples(texte: str) -> list[dict]:
+    """Une équipe par ligne : juste le nom."""
+    return [{"nom": n.strip()} for n in texte.splitlines() if n.strip()]
+
+
+def parser_lignes_detaillees(texte: str) -> list[dict]:
+    """Une équipe par ligne au format `Nom | Capitaine | joueur1, joueur2, …`.
+
+    Les parties après le nom sont facultatives ; une ligne sans `|` = nom simple.
+    """
+    equipes: list[dict] = []
+    for ligne in texte.splitlines():
+        if not ligne.strip():
+            continue
+        parts = [p.strip() for p in ligne.split("|")]
+        nom = parts[0]
+        if not nom:
+            continue
+        capitaine = parts[1] if len(parts) > 1 else ""
+        joueurs = []
+        if len(parts) > 2 and parts[2]:
+            joueurs = [j.strip() for j in parts[2].split(",") if j.strip()]
+        equipes.append({"nom": nom, "capitaine": capitaine, "joueurs": joueurs})
+    return equipes
+
+
+def parser_json_equipes(contenu: str) -> list[dict]:
+    """Parse un JSON d'équipes. Accepte un tableau nu ou {"equipes": [...]}.
+
+    Lève ValueError avec un message clair si le format est invalide.
+    """
+    try:
+        data = json.loads(contenu)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"JSON invalide : {e.msg} (ligne {e.lineno}).")
+    if isinstance(data, dict):
+        data = data.get("equipes", [])
+    if not isinstance(data, list):
+        raise ValueError('Le JSON doit être un tableau ou un objet {"equipes": [...]}.')
+    equipes: list[dict] = []
+    for i, item in enumerate(data, 1):
+        if isinstance(item, str):
+            if item.strip():
+                equipes.append({"nom": item.strip()})
+            continue
+        if not isinstance(item, dict):
+            raise ValueError(f"Équipe n°{i} : format inattendu (ni texte ni objet).")
+        nom = str(item.get("nom") or item.get("name") or "").strip()
+        if not nom:
+            raise ValueError(f"Équipe n°{i} : champ \"nom\" manquant ou vide.")
+        capitaine = str(item.get("capitaine") or item.get("captain") or "").strip()
+        joueurs_brut = item.get("joueurs") or item.get("players") or []
+        if not isinstance(joueurs_brut, list):
+            raise ValueError(f"Équipe « {nom} » : \"joueurs\" doit être une liste.")
+        joueurs = [str(j).strip() for j in joueurs_brut if str(j).strip()]
+        equipes.append({"nom": nom, "capitaine": capitaine, "joueurs": joueurs})
+    return equipes
 
 
 # --------------------------------------------------------------------------- #
@@ -247,15 +310,58 @@ def ecran_creation():
                      "dans le groupe, on démarre automatiquement à un tour plus avancé.")
             elim_taille = tours_elim[tour_elim_label]
 
-        st.markdown("**Noms des équipes** (un par ligne, vide = noms automatiques)")
-        noms_brut = st.text_area("Équipes", height=140, label_visibility="collapsed",
-                                 placeholder="Les Aigles\nLes Tigres\n...")
+        st.markdown("**Équipes**")
+        tab_simple, tab_detail, tab_json = st.tabs(
+            ["📝 Simple", "📋 Détaillée", "📁 Import JSON"])
+        with tab_simple:
+            st.caption("Un nom par ligne. Laisse vide pour des noms automatiques.")
+            noms_simple = st.text_area(
+                "Noms simples", height=140, label_visibility="collapsed",
+                placeholder="Les Aigles\nLes Tigres\n...")
+        with tab_detail:
+            st.caption("Une équipe par ligne : `Nom | Capitaine | joueur1, joueur2, …` "
+                       "(capitaine et joueurs facultatifs).")
+            noms_detail = st.text_area(
+                "Compos détaillées", height=140, label_visibility="collapsed",
+                placeholder="Les Aigles | Marie | Marie, Tom, Léa\n"
+                            "Les Tigres | Paul | Paul, Inès")
+        with tab_json:
+            st.caption('Fichier .json : un tableau, ou {"equipes": '
+                       '[{"nom", "capitaine", "joueurs"}]}.')
+            fichier_json = st.file_uploader(
+                "Fichier équipes (JSON)", type=["json"], label_visibility="collapsed")
+        st.caption("Si plusieurs onglets sont remplis : JSON > Détaillée > Simple.")
         submit = st.form_submit_button("🏐 Créer le tournoi", type="primary")
 
     if submit:
-        noms = [n for n in noms_brut.splitlines() if n.strip()]
-        if not noms:
-            noms = [f"Équipe {i}" for i in range(1, int(nb_equipes) + 1)]
+        # Source des équipes selon la priorité JSON > Détaillée > Simple. À vide,
+        # on génère des noms automatiques (pas de garde-fou sur le nombre).
+        try:
+            if fichier_json is not None:
+                noms = parser_json_equipes(fichier_json.getvalue().decode("utf-8"))
+                source = "Le fichier JSON"
+            elif noms_detail.strip():
+                noms = parser_lignes_detaillees(noms_detail)
+                source = "La saisie détaillée"
+            elif noms_simple.strip():
+                noms = parser_lignes_simples(noms_simple)
+                source = "La saisie simple"
+            else:
+                noms = [{"nom": f"Équipe {i}"} for i in range(1, int(nb_equipes) + 1)]
+                source = None
+        except ValueError as e:
+            st.error(str(e))
+            st.stop()
+
+        # Garde-fou : quand des équipes sont fournies, leur nombre doit coïncider
+        # avec le « Nombre d'équipes » saisi — pour être sûr de n'oublier personne.
+        if source is not None and len(noms) != int(nb_equipes):
+            st.error(
+                f"⚠️ {source} contient {len(noms)} équipe(s), mais tu as indiqué "
+                f"{int(nb_equipes)} dans « Nombre d'équipes ». Corrige l'un ou "
+                "l'autre pour n'oublier personne.")
+            st.stop()
+
         # Si on répartit par taille de poule, on déduit le nb de poules à partir
         # du nombre RÉEL d'équipes (les noms saisis priment sur "Nombre d'équipes").
         if systeme == "poules" and mode_repartition == "taille":
@@ -401,6 +507,14 @@ def _nom(equipe):
     return equipe.nom if equipe is not None else "— à déterminer —"
 
 
+def _nom_cap(equipe):
+    """Nom de l'équipe suivi du capitaine s'il est renseigné (cartes de match)."""
+    if equipe is None:
+        return "— à déterminer —"
+    cap = getattr(equipe, "capitaine", "")
+    return f"{equipe.nom} · cap. {cap}" if cap else equipe.nom
+
+
 def _points_cible(regles, phase) -> int:
     """Points cible d'une phase, robuste aux objets ReglesScore d'avant le refactor."""
     if hasattr(regles, "points_cible"):
@@ -438,10 +552,10 @@ def carte_match(t, m, contexte: str, feuille_individuelle: bool = False):
             help="Feuille à imprimer : équipes, arbitre, terrain, grille de "
                  "score à cocher et score final.")
     c1, c2 = st.columns(2)
-    pa = c1.number_input(_nom(m.equipe_a), 0, 99,
+    pa = c1.number_input(_nom_cap(m.equipe_a), 0, 99,
                          value=m.points_a if m.points_a is not None else 0,
                          key=f"pa_{contexte}_{m.id}")
-    pb = c2.number_input(_nom(m.equipe_b), 0, 99,
+    pb = c2.number_input(_nom_cap(m.equipe_b), 0, 99,
                          value=m.points_b if m.points_b is not None else 0,
                          key=f"pb_{contexte}_{m.id}")
     if st.button("Enregistrer", key=f"btn_{contexte}_{m.id}", use_container_width=True):
@@ -723,6 +837,28 @@ def _remonter_en_haut() -> None:
     )
 
 
+def panneau_equipes(t):
+    """Panneau repliable listant les équipes avec capitaine et composition.
+
+    Affiché seulement si au moins une équipe a une compo renseignée (capitaine
+    ou joueurs) ; sinon inutile d'encombrer l'écran.
+    """
+    avec_compo = any(getattr(e, "capitaine", "") or getattr(e, "joueurs", [])
+                     for e in t.equipes)
+    if not avec_compo:
+        return
+    with st.expander("👥 Équipes (capitaines & compositions)"):
+        for e in t.equipes:
+            cap = getattr(e, "capitaine", "")
+            joueurs = getattr(e, "joueurs", [])
+            titre = f"**{e.nom}**"
+            if cap:
+                titre += f" — 🧢 cap. {cap}"
+            st.markdown(titre)
+            if joueurs:
+                st.caption("Joueurs : " + ", ".join(joueurs))
+
+
 def ecran_tournoi(t):
     sidebar_reglages(t)
     est_suisse = getattr(t, "systeme", "poules") == "suisse"
@@ -743,6 +879,8 @@ def ecran_tournoi(t):
                   f"/{ppp.get('elimination', '?')}")
     else:
         c4.metric("Pts pour gagner", t.regles.points_pour_gagner)
+
+    panneau_equipes(t)
 
     # Les tours de classement sont dérivés des matchs (vaut pour poules ET suisse).
     tours = sorted({m.tour for m in t.matchs if m.phase == Phase.BRASSAGE and m.tour})

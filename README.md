@@ -139,7 +139,17 @@ Champs communs :
 - **Points pour gagner un match**, réglables **par phase** : brassage / suisse (ex. 15),
   poule principale / consolante (ex. 21), élimination directe (ex. 25). C'est un format
   « 1 set sec » : tu saisis les points marqués, le vainqueur est celui qui en a le plus.
-- Les **noms des équipes** (un par ligne ; si tu laisses vide, elles s'appellent E1, E2, …)
+- Les **équipes**, via trois onglets de saisie (priorité **JSON > Détaillée > Simple**) :
+  - **Simple** : un nom par ligne (si vide, elles s'appellent Équipe 1, Équipe 2, …) ;
+  - **Détaillée** : une équipe par ligne `Nom | Capitaine | joueur1, joueur2, …`
+    (capitaine et joueurs facultatifs) ;
+  - **Import JSON** : un fichier `.json` préparé à l'avance — soit un tableau, soit
+    `{"equipes": [{"nom": "…", "capitaine": "…", "joueurs": ["…", "…"]}]}`.
+
+  Dès qu'une saisie est utilisée, le **nombre d'équipes obtenu doit correspondre** au champ
+  « Nombre d'équipes » (garde-fou pour n'oublier personne, sinon la création est bloquée).
+  Le capitaine et la composition s'affichent ensuite dans un panneau **👥 Équipes** repliable
+  et le capitaine apparaît à côté du nom de l'équipe dans les cartes de match.
 
 En **poules de brassage**, tu définis en plus :
 - la **répartition des poules**, au choix : soit **par nombre de poules**, soit **par nombre

@@ -1,0 +1,20 @@
+{
+  "equipes": [
+    {"nom": "Équipe 01", "capitaine": "Capitaine 01", "joueurs": ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6"]},
+    {"nom": "Équipe 02", "capitaine": "Capitaine 02", "joueurs": ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6"]},
+    {"nom": "Équipe 03", "capitaine": "Capitaine 03", "joueurs": ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6"]},
+    {"nom": "Équipe 04", "capitaine": "Capitaine 04", "joueurs": ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6"]},
+    {"nom": "Équipe 05", "capitaine": "Capitaine 05", "joueurs": ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6"]},
+    {"nom": "Équipe 06", "capitaine": "Capitaine 06", "joueurs": ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6"]},
+    {"nom": "Équipe 07", "capitaine": "Capitaine 07", "joueurs": ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6"]},
+    {"nom": "Équipe 08", "capitaine": "Capitaine 08", "joueurs": ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6"]},
+    {"nom": "Équipe 09", "capitaine": "Capitaine 09", "joueurs": ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6"]},
+    {"nom": "Équipe 10", "capitaine": "Capitaine 10", "joueurs": ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6"]},
+    {"nom": "Équipe 11", "capitaine": "Capitaine 11", "joueurs": ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6"]},
+    {"nom": "Équipe 12", "capitaine": "Capitaine 12", "joueurs": ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6"]},
+    {"nom": "Équipe 13", "capitaine": "Capitaine 13", "joueurs": ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6"]},
+    {"nom": "Équipe 14", "capitaine": "Capitaine 14", "joueurs": ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6"]},
+    {"nom": "Équipe 15", "capitaine": "Capitaine 15", "joueurs": ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6"]},
+    {"nom": "Équipe 16", "capitaine": "Capitaine 16", "joueurs": ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6"]}
+  ]
+}

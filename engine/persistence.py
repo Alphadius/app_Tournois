@@ -40,7 +40,12 @@ def to_dict(t: Tournoi) -> dict:
         "suisse_byes": list(getattr(t, "suisse_byes", [])),
         "_id_seq": getattr(t, "_id_seq", 0),
         "regles": asdict(t.regles),
-        "equipes": [{"id": e.id, "nom": e.nom} for e in t.equipes],
+        "equipes": [
+            {"id": e.id, "nom": e.nom,
+             "capitaine": getattr(e, "capitaine", ""),
+             "joueurs": list(getattr(e, "joueurs", []))}
+            for e in t.equipes
+        ],
         "poules": [
             {"nom": p.nom, "phase": p.phase.value, "tour": getattr(p, "tour", 0),
              "equipe_ids": [e.id for e in p.equipes]}
@@ -57,7 +62,12 @@ def to_dict(t: Tournoi) -> dict:
 
 
 def from_dict(d: dict) -> Tournoi:
-    equipes = [Equipe(id=e["id"], nom=e["nom"]) for e in d["equipes"]]
+    equipes = [
+        Equipe(id=e["id"], nom=e["nom"],
+               capitaine=e.get("capitaine", ""),
+               joueurs=list(e.get("joueurs", [])))
+        for e in d["equipes"]
+    ]
     par_id = {e.id: e for e in equipes}
 
     def eq(i):

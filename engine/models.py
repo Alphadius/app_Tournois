@@ -31,6 +31,8 @@ class Phase(str, Enum):
 class Equipe:
     id: int
     nom: str
+    capitaine: str = ""                       # nom du capitaine (optionnel)
+    joueurs: list[str] = field(default_factory=list)  # composition (optionnel)
 
     def __hash__(self) -> int:
         return hash(self.id)
@@ -193,7 +195,27 @@ class Tournoi:
         return None
 
 
-def creer_equipes(noms: list[str]) -> list[Equipe]:
-    """Crée des équipes à partir d'une liste de noms."""
+def creer_equipes(equipes: list) -> list[Equipe]:
+    """Crée des équipes à partir d'une liste de noms ou de compositions.
+
+    Chaque élément peut être :
+      - une chaîne (le nom de l'équipe), ou
+      - un dict {"nom", "capitaine"?, "joueurs"?} pour une composition complète.
+    Les éléments sans nom non vide sont ignorés.
+    """
     c = count(1)
-    return [Equipe(id=next(c), nom=nom.strip()) for nom in noms if nom.strip()]
+    out: list[Equipe] = []
+    for item in equipes:
+        if isinstance(item, dict):
+            nom = str(item.get("nom") or "").strip()
+            if not nom:
+                continue
+            capitaine = str(item.get("capitaine") or "").strip()
+            joueurs = [str(j).strip() for j in (item.get("joueurs") or []) if str(j).strip()]
+            out.append(Equipe(id=next(c), nom=nom, capitaine=capitaine, joueurs=joueurs))
+        else:
+            nom = str(item).strip()
+            if not nom:
+                continue
+            out.append(Equipe(id=next(c), nom=nom))
+    return out
