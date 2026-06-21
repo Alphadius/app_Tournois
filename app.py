@@ -92,6 +92,17 @@ def diffuser(t, force: bool = False) -> bool:
     return False
 
 
+def publier_des_que_possible() -> None:
+    """Lève l'anti-rafale pour que la PROCHAINE diffusion parte tout de suite.
+
+    À utiliser sur les évènements rares et importants (création d'un tour ou
+    d'une phase) : on veut que la page publique reflète le changement sans
+    attendre l'intervalle anti-rafale. La diffusion reste soumise à la case
+    « Publier en ligne » et au fait que le contenu ait réellement changé.
+    """
+    st.session_state["_pub_ts"] = 0.0
+
+
 @st.fragment(run_every=BATTEMENT_PUBLI)
 def battement_publication(t) -> None:
     """Relance `diffuser` périodiquement, sans interaction de l'utilisateur.
@@ -709,6 +720,7 @@ def onglet_brassage(t, tour: int):
                          type="primary", key=f"next_{tour}"):
                 generer_tour_brassage_suivant(t, tour)
                 st.session_state["aller_phase"] = f"Brassage {tour + 1}"
+                publier_des_que_possible()
                 st.rerun()
         else:
             st.caption(f"Brassage {tour + 1} déjà lancé (onglet suivant).")
@@ -718,6 +730,7 @@ def onglet_brassage(t, tour: int):
                          type="primary", key="gen_finales"):
                 generer_poules_finales(t)
                 st.session_state["aller_phase"] = "Finales"
+                publier_des_que_possible()
                 st.rerun()
         else:
             st.caption("Poules finales déjà créées (onglet Finales).")
@@ -754,6 +767,7 @@ def onglet_suisse(t, tour: int):
                          type="primary", key="gen_finales_suisse"):
                 generer_poules_finales(t)
                 st.session_state["aller_phase"] = "Finales"
+                publier_des_que_possible()
                 st.rerun()
         else:
             st.caption("Poules finales déjà créées (onglet Finales).")
@@ -762,6 +776,7 @@ def onglet_suisse(t, tour: int):
                      type="primary", key=f"next_suisse_{tour}"):
             generer_tour_brassage_suivant(t, tour)
             st.session_state["aller_phase"] = f"Tour {tour + 1}"
+            publier_des_que_possible()
             st.rerun()
 
 
@@ -786,6 +801,7 @@ def onglet_finales(t):
         if st.button("🥇 Générer la phase éliminatoire", type="primary"):
             generer_elimination(t)
             st.session_state["aller_phase"] = "Élimination"
+            publier_des_que_possible()
             st.rerun()
 
 
