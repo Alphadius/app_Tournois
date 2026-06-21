@@ -4,3 +4,4 @@ __pycache__/
 .DS_Store
 .streamlit/secrets.toml
 .autosave/
+liste_equipes_05-07-26.json
