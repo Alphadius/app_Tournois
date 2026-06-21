@@ -40,6 +40,10 @@ AUTOSAVE = Path(__file__).parent / ".autosave" / "dernier.json"
 # pas déclencher la limite anti-rafale de l'API GitHub (la page publique ne se
 # rafraîchit de toute façon que toutes les ~20 s).
 PUBLI_INTERVALLE = 20
+# Cadence (s) du « battement de cœur » qui rattrape les changements en attente même
+# sans interaction. Plus court = publication plus réactive ; l'anti-rafale de
+# PUBLI_INTERVALLE limite de toute façon la fréquence réelle des envois à GitHub.
+BATTEMENT_PUBLI = 10
 
 
 def tournoi():
@@ -86,6 +90,18 @@ def diffuser(t, force: bool = False) -> bool:
         st.session_state["_pub_heure"] = time.strftime("%H:%M:%S")
         return True
     return False
+
+
+@st.fragment(run_every=BATTEMENT_PUBLI)
+def battement_publication(t) -> None:
+    """Relance `diffuser` périodiquement, sans interaction de l'utilisateur.
+
+    Le fragment se ré-exécute seul toutes les BATTEMENT_PUBLI secondes (isolé du
+    reste de la page), ce qui flushe le dernier changement d'une série resté « en
+    attente » à cause de l'anti-rafale. Ne publie rien si la diffusion est
+    désactivée ou si le contenu n'a pas changé.
+    """
+    diffuser(t)
 
 
 def restaurer_autosave():
@@ -924,7 +940,12 @@ def ecran_tournoi(t):
     # Sauvegarde automatique de l'état courant à chaque interaction.
     autosave(t)
     # Diffusion en ligne (si activée) : ne pousse que si le contenu a changé.
+    # 1) Tout de suite, à chaque interaction (réactivité immédiate).
     diffuser(t)
+    # 2) En continu, même sans interaction : un battement périodique rattrape le
+    #    dernier changement d'une série, qui sinon resterait « en attente » jusqu'à
+    #    la prochaine action (l'anti-rafale de 20 s dans diffuser() reste actif).
+    battement_publication(t)
 
 
 def main():
